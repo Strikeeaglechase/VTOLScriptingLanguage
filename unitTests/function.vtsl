@@ -1,0 +1,6 @@
+// EXPECT n=3
+fn add(a, b) {
+	return a + b;
+}
+
+let n = add(1, 2);

@@ -1,0 +1,18 @@
+define players: MultiplayerSpawn = (1..5, 11, 12);
+define targets: Unit = 6..10;
+define me: MultiplayerSpawn = 1;
+
+fn spawnDeadTargets() {
+	forEach (targets as t) {
+		if (!t.isAlive) t.respawn();
+	}
+}
+
+let n = 5;
+let firstPlayer = players[n];
+while (true) {
+	if (firstPlayer.isAlive) {
+		players.destroy();
+		spawnDeadTargets();
+	}
+}

@@ -1,0 +1,14 @@
+//EXPECT n=1
+//EXPECT z=66
+let a = 4;
+let b = 3;
+let n = 1;
+let z = 1;
+
+if (a < b) {
+	n = 77;
+}
+
+if (a > b) {
+	z = 66;
+}

@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"target": "ES6",
+		"moduleResolution": "node",
+		"module": "esnext",
+		"allowSyntheticDefaultImports": true,
+		"sourceMap": true,
+		"outDir": "dist/",
+		"baseUrl": "./src",
+		"lib": ["ES2022", "DOM"],
+		"experimentalDecorators": true
+	},
+	"include": ["src/"]
+}

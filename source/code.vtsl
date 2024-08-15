@@ -1,0 +1,7 @@
+// EXPECT n=-6
+// EXPECT v=0
+// EXPECT z=1
+let x = 6;
+let n = -x;
+let v = !x;
+let z = !v;

@@ -1,0 +1,10 @@
+//expect n=3
+//expect z=5
+//expect z1=6
+
+let a = 1;
+let b = 2;
+let n = a + b;
+
+let z = a + b * b;
+let z1 = (a + b) * b;

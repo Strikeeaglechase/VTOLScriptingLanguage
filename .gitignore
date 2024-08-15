@@ -1,3 +1,9 @@
+debug
+vts.vts
+vts.json
+source.vts
+
+
 # Logs
 logs
 *.log
