@@ -167,6 +167,10 @@ class IRGenerator {
 				if (cActRef) {
 					return `cact_${cActRef.name}_${cActRef.id}`;
 				}
+				const gvRef = ir.gvs.find(gv => gv.id == arg.value);
+				if (gvRef) {
+					return gvRef.name;
+				}
 			}
 
 			return JSON.stringify(arg.value);
@@ -235,4 +239,4 @@ class IRGenerator {
 	}
 }
 
-export { IRGenerator, IR, IREvent, IRSequence, IRConditional, IRConditionalAction };
+export { IRGenerator, IR, IREvent, IRSequence, IRConditional, IRConditionalAction, IRArg };

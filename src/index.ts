@@ -8,6 +8,7 @@ import { Preprocessor } from "./parser/preprocessor.js";
 import { Tokenizer } from "./parser/tokenizer.js";
 import { UnitTester } from "./unitTests.js";
 import { readVtsFile, writeVtsFile } from "./vtsParser.js";
+import { IRCompiler } from "./compiler/irCompiler.js";
 
 let sourceVtsPath = "C:/Program Files (x86)/Steam/steamapps/common/VTOL VR/CustomScenarios/Campaigns/chaseFeetPics/snippet1_2024-08-05/snippet1_2024-08-05.vts";
 let sourceCodePath: string;
@@ -15,7 +16,6 @@ if (fs.existsSync("./source/code.vtsl")) sourceCodePath = "./source/code.vtsl";
 else sourceCodePath = "../source/code.vtsl";
 
 const source = fs.readFileSync(sourceCodePath, "utf8");
-const sourceVts = fs.readFileSync(sourceVtsPath, "utf-8");
 
 const preprocessor = new Preprocessor(source);
 const posCharStream = preprocessor.preprocess();
@@ -30,22 +30,27 @@ fs.writeFileSync("../debug/ast.json", JSON.stringify(ast, null, 2));
 
 const orgVts = readVtsFile(fs.readFileSync(sourceVtsPath, "utf-8"));
 const compiler = new Compiler(ast, orgVts);
-const result = compiler.compile();
-fs.writeFileSync("../debug/output.vts", writeVtsFile(result));
+const compiledVts = compiler.compile();
+fs.writeFileSync("../debug/output.vts", writeVtsFile(compiledVts));
 // fs.writeFileSync("../debug/nodeInfos.json", JSON.stringify(compiler.gen.nodeInfos));
-const irGenerator = new IRGenerator(result, compiler.gen.nodeInfos);
+const irGenerator = new IRGenerator(compiledVts, compiler.gen.nodeInfos);
 const ir = irGenerator.generateIR();
 fs.writeFileSync("../debug/ir.json", JSON.stringify(ir, null, 2));
 fs.writeFileSync("../debug/ir.txt", irGenerator.debug(ir));
+const irCompiler = new IRCompiler(ir, orgVts);
+const irCompiledVts = irCompiler.compile();
+fs.writeFileSync("../debug/irresult.vts", writeVtsFile(irCompiledVts));
 
-result.setValue("scenarioID", "output", true);
-fs.writeFileSync("C:/Program Files (x86)/Steam/steamapps/common/VTOL VR/CustomScenarios/Campaigns/chaseFeetPics/output/output.vts", writeVtsFile(result));
+compiledVts.diff(irCompiledVts,"");
 
-const emulator = new Emulator(result, false);
+compiledVts.setValue("scenarioID", "output", true);
+fs.writeFileSync("C:/Program Files (x86)/Steam/steamapps/common/VTOL VR/CustomScenarios/Campaigns/chaseFeetPics/output/output.vts", writeVtsFile(compiledVts));
+
+const emulator = new Emulator(compiledVts, false);
 emulator.execute();
 
 console.log(emulator.getGvByName("v"));
 // console.log(emulator.getGvByName("z"));
 
 const unitTests = new UnitTester();
-unitTests.runTests();
+// unitTests.runTests();

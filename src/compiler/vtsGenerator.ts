@@ -18,7 +18,6 @@ interface NodeInfo {
 	result: VTNode;
 }
 
-const nodeInfos: NodeInfo[] = [];
 function Track(target: Object, propertyKey: string, descriptor: PropertyDescriptor) {
 	const orgFn = descriptor.value as Function;
 	descriptor.value = function (...args: any[]) {
@@ -36,11 +35,11 @@ function Track(target: Object, propertyKey: string, descriptor: PropertyDescript
 
 class VTSGenerator {
 	public nodeInfos: NodeInfo[] = [];
-	public get context() {
-		return this.compiler.context;
-	}
+	// public get context() {
+	// 	return this.compiler.context;
+	// }
 
-	constructor(private compiler: Compiler, private nextId: () => number, private vts: VTNode) {}
+	constructor(private nextId: () => number, private vts: VTNode) {}
 
 	@Track
 	public sequence(name: string, addToSeqList = true, withBaseEvent = true) {
@@ -131,7 +130,7 @@ class VTSGenerator {
 	}
 
 	@Track
-	public gvSet(gv: string, value: number) {
+	public gvSet(gv: number, value: number) {
 		const eventTarget = new VTNode<EventTargetKeys>("EventTarget");
 		eventTarget.setValue("targetType", "System");
 		eventTarget.setValue("targetID", 2);
@@ -140,7 +139,7 @@ class VTSGenerator {
 
 		const gvParamInfo = new VTNode<ParamInfoKeys>("ParamInfo");
 		gvParamInfo.setValue("type", "GlobalValue");
-		gvParamInfo.setValue("value", this.context.getGV(gv).id);
+		gvParamInfo.setValue("value", gv);
 		gvParamInfo.setValue("name", "Global Value");
 		eventTarget.addChild(gvParamInfo);
 
@@ -164,7 +163,7 @@ class VTSGenerator {
 	}
 
 	@Track
-	public gvCopy(from: string, to: string) {
+	public gvCopy(from: number, to: number) {
 		const eventTarget = new VTNode<EventTargetKeys>("EventTarget");
 		eventTarget.setValue("targetType", "System");
 		eventTarget.setValue("targetID", 2);
@@ -173,13 +172,13 @@ class VTSGenerator {
 
 		const sourceParamInfo = new VTNode<ParamInfoKeys>("ParamInfo");
 		sourceParamInfo.setValue("type", "GlobalValue");
-		sourceParamInfo.setValue("value", this.context.getGV(from).id);
+		sourceParamInfo.setValue("value", from);
 		sourceParamInfo.setValue("name", "Source");
 		eventTarget.addChild(sourceParamInfo);
 
 		const destParamInfo = new VTNode<ParamInfoKeys>("ParamInfo");
 		destParamInfo.setValue("type", "GlobalValue");
-		destParamInfo.setValue("value", this.context.getGV(to).id);
+		destParamInfo.setValue("value", to);
 		destParamInfo.setValue("name", "Destination");
 		eventTarget.addChild(destParamInfo);
 
@@ -187,7 +186,7 @@ class VTSGenerator {
 	}
 
 	@Track
-	public gvIncDec(gv: string, amount: number, type: "IncrementValue" | "DecrementValue") {
+	public gvIncDec(gv: number, amount: number, type: "IncrementValue" | "DecrementValue") {
 		const eventTarget = new VTNode<EventTargetKeys>("EventTarget");
 		eventTarget.setValue("targetType", "System");
 		eventTarget.setValue("targetID", 2);
@@ -197,7 +196,7 @@ class VTSGenerator {
 
 		const gvParamInfo = new VTNode<ParamInfoKeys>("ParamInfo");
 		gvParamInfo.setValue("type", "GlobalValue");
-		gvParamInfo.setValue("value", this.context.getGV(gv).id);
+		gvParamInfo.setValue("value", gv);
 		gvParamInfo.setValue("name", "Global Value");
 		eventTarget.addChild(gvParamInfo);
 
@@ -221,7 +220,7 @@ class VTSGenerator {
 	}
 
 	@Track
-	public gvMath(a: string, b: string, method: "AddValues" | "SubtractValues" | "MultiplyValues") {
+	public gvMath(a: number, b: number, method: "AddValues" | "SubtractValues" | "MultiplyValues") {
 		const eventTarget = new VTNode<EventTargetKeys>("EventTarget");
 		eventTarget.setValue("targetType", "System");
 		eventTarget.setValue("targetID", 2);
@@ -230,13 +229,13 @@ class VTSGenerator {
 
 		const aParamInfo = new VTNode<ParamInfoKeys>("ParamInfo");
 		aParamInfo.setValue("type", "GlobalValue");
-		aParamInfo.setValue("value", this.context.getGV(a).id);
+		aParamInfo.setValue("value", a);
 		aParamInfo.setValue("name", "Source");
 		eventTarget.addChild(aParamInfo);
 
 		const bParamInfo = new VTNode<ParamInfoKeys>("ParamInfo");
 		bParamInfo.setValue("type", "GlobalValue");
-		bParamInfo.setValue("value", this.context.getGV(b).id);
+		bParamInfo.setValue("value", b);
 		bParamInfo.setValue("name", "Destination");
 		eventTarget.addChild(bParamInfo);
 
@@ -244,12 +243,12 @@ class VTSGenerator {
 	}
 
 	@Track
-	public gvComp(gvName: string, value: number, comparison: "Equals" | "Greater_Than" | "Less_Than") {
+	public gvComp(gvName: number, value: number, comparison: "Equals" | "Greater_Than" | "Less_Than") {
 		const comp = new VTNode<CompKeys>("COMP");
 		comp.setValue("id", this.nextId());
 		comp.setValue("type", "SCCGlobalValue");
 		comp.setValue("uiPos", { x: 0, y: 0, z: 0 });
-		comp.setValue("gv", this.context.getGV(gvName).id);
+		comp.setValue("gv", gvName);
 		comp.setValue("comparison", comparison);
 		comp.setValue("c_value", value);
 
@@ -257,7 +256,7 @@ class VTSGenerator {
 	}
 
 	@Track
-	public gvNotZero(gvName: string) {
+	public gvNotZero(gvName: number) {
 		const greaterThanZero = this.gvComp(gvName, 0, "Greater_Than");
 		const lessThanZero = this.gvComp(gvName, 0, "Less_Than");
 
@@ -279,7 +278,7 @@ class VTSGenerator {
 	}
 
 	@Track
-	public gvGvComp(a: string, b: string, comparison: string) {
+	public gvGvComp(a: number, b: number, comparison: string) {
 		const compLut = {
 			"==": "Equals",
 			"!=": "NotEquals",
@@ -295,8 +294,8 @@ class VTSGenerator {
 		comp.setValue("id", this.nextId());
 		comp.setValue("type", "SCCGlobalValueCompare");
 		comp.setValue("uiPos", { x: 0, y: 0, z: 0 });
-		comp.setValue("gvA", this.context.getGV(a).id);
-		comp.setValue("gvB", this.context.getGV(b).id);
+		comp.setValue("gvA", a);
+		comp.setValue("gvB", b);
 		comp.setValue("comparison", compLut[comparison]);
 
 		return comp;

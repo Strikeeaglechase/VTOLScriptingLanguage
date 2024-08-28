@@ -30,6 +30,10 @@ class Context {
 		return v;
 	}
 
+	public getGVId(name: string) {
+		return this.getGV(name).id;
+	}
+
 	public addGV(name: string) {
 		this.gvs.push({ name: name, id: this.idGen() });
 		return this.getGV(name);

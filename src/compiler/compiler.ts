@@ -68,6 +68,10 @@ class Compiler {
 		}
 	}
 
+	private vn(name: string) {
+		return this.context.getGVId(name);
+	}
+
 	private add(node: VTNode) {
 		this.currentEventContext.addChild(node);
 	}
@@ -78,7 +82,7 @@ class Compiler {
 
 	constructor(private ast: AST.Program, orgVts: VTNode) {
 		this.vts = orgVts.clone();
-		this.gen = new VTSGenerator(this, this.nextId.bind(this), this.vts);
+		this.gen = new VTSGenerator(this.nextId.bind(this), this.vts);
 
 		const context = new Context(null, this.nextId.bind(this));
 		this.contextStack.push(context);
@@ -94,10 +98,10 @@ class Compiler {
 			const pushCondAction = this.gen.conditionalAction("push");
 
 			// Base case
-			const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp("sp", 0, "Equals"));
+			const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn("sp"), 0, "Equals"));
 			const actionParent = new VTNode<"eventName">("ACTIONS");
 			actionParent.setValue("eventName", null);
-			actionParent.addChild(this.gen.gvCopy(vars.result, stackIdx(0)));
+			actionParent.addChild(this.gen.gvCopy(this.vn(vars.result), this.vn(stackIdx(0))));
 			const baseBlock = pushCondAction.findChildWithName("BASE_BLOCK");
 			baseBlock.addChild(baseCaseConditional);
 			baseBlock.addChild(actionParent);
@@ -106,11 +110,11 @@ class Compiler {
 				const elseIf = new VTNode<BaseBlockKeys>("ELSE_IF");
 				elseIf.setValue("{blockName}", `stack[${i}]`);
 				elseIf.setValue("blockId", this.nextId());
-				const elseIfConditional = this.gen.conditionalWithCondition(this.gen.gvComp("sp", i, "Equals"));
+				const elseIfConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn("sp"), i, "Equals"));
 
 				const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
 				elseIfActionParent.setValue("eventName", null);
-				elseIfActionParent.addChild(this.gen.gvCopy(vars.result, stackIdx(i)));
+				elseIfActionParent.addChild(this.gen.gvCopy(this.vn(vars.result), this.vn(stackIdx(i))));
 				elseIf.addChild(elseIfConditional);
 				elseIf.addChild(elseIfActionParent);
 
@@ -120,7 +124,7 @@ class Compiler {
 			// Set, then increment
 			const pushBlockEvents = pushSeq.findChildWithName("EventInfo");
 			pushBlockEvents.addChild(this.gen.fireConditional(pushCondAction.getValue("id")));
-			pushBlockEvents.addChild(this.gen.gvIncDec("sp", 1, "IncrementValue"));
+			pushBlockEvents.addChild(this.gen.gvIncDec(this.vn("sp"), 1, "IncrementValue"));
 		}
 
 		// = Pop setup =
@@ -130,10 +134,10 @@ class Compiler {
 			const popCondAction = this.gen.conditionalAction("pop");
 
 			// Base case
-			const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp("sp", 0, "Equals"));
+			const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn("sp"), 0, "Equals"));
 			const actionParent = new VTNode<"eventName">("ACTIONS");
 			actionParent.setValue("eventName", null);
-			actionParent.addChild(this.gen.gvCopy(stackIdx(0), vars.result));
+			actionParent.addChild(this.gen.gvCopy(this.vn(stackIdx(0)), this.vn(vars.result)));
 			const baseBlock = popCondAction.findChildWithName("BASE_BLOCK");
 			baseBlock.addChild(baseCaseConditional);
 			baseBlock.addChild(actionParent);
@@ -142,11 +146,11 @@ class Compiler {
 				const elseIf = new VTNode<BaseBlockKeys>("ELSE_IF");
 				elseIf.setValue("{blockName}", `stack[${i}]`);
 				elseIf.setValue("blockId", this.nextId());
-				const elseIfConditional = this.gen.conditionalWithCondition(this.gen.gvComp("sp", i, "Equals"));
+				const elseIfConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn("sp"), i, "Equals"));
 
 				const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
 				elseIfActionParent.setValue("eventName", null);
-				elseIfActionParent.addChild(this.gen.gvCopy(stackIdx(i), vars.result));
+				elseIfActionParent.addChild(this.gen.gvCopy(this.vn(stackIdx(i)), this.vn(vars.result)));
 				elseIf.addChild(elseIfConditional);
 				elseIf.addChild(elseIfActionParent);
 
@@ -155,7 +159,7 @@ class Compiler {
 
 			// Decrement, then retrieve
 			const popBlockEvents = popSeq.findChildWithName("EventInfo");
-			popBlockEvents.addChild(this.gen.gvIncDec("sp", 1, "DecrementValue"));
+			popBlockEvents.addChild(this.gen.gvIncDec(this.vn("sp"), 1, "DecrementValue"));
 			popBlockEvents.addChild(this.gen.fireConditional(popCondAction.getValue("id")));
 		}
 	}
@@ -237,23 +241,23 @@ class Compiler {
 
 		this.pop();
 		const gv = this.context.getGV(ast.name.value);
-		this.add(this.gen.gvCopy(vars.result, gv.name));
+		this.add(this.gen.gvCopy(this.vn(vars.result), this.vn(gv.name)));
 	}
 
 	private handleVarDeclaration(ast: AST.VariableDeclaration) {
 		const gv = this.makeVar(ast.name.value);
 		this.compileAst(ast.expression);
 		this.pop();
-		this.add(this.gen.gvCopy(vars.result, gv.name));
+		this.add(this.gen.gvCopy(this.vn(vars.result), this.vn(gv.name)));
 	}
 
 	private handleVarReference(ast: AST.VariableReference) {
-		this.add(this.gen.gvCopy(ast.name.value, vars.result));
+		this.add(this.gen.gvCopy(this.vn(ast.name.value), this.vn(vars.result)));
 		this.push();
 	}
 
 	private handleLiteralNumber(ast: AST.LiteralNumber) {
-		this.add(this.gen.gvSet(vars.result, ast.value));
+		this.add(this.gen.gvSet(this.vn(vars.result), ast.value));
 		this.push();
 	}
 
@@ -261,19 +265,19 @@ class Compiler {
 		this.compileAst(ast.left);
 		this.compileAst(ast.right);
 		this.pop();
-		this.add(this.gen.gvCopy(vars.result, vars.mathB));
+		this.add(this.gen.gvCopy(this.vn(vars.result), this.vn(vars.mathB)));
 		this.pop();
-		this.add(this.gen.gvCopy(vars.result, vars.mathA));
+		this.add(this.gen.gvCopy(this.vn(vars.result), this.vn(vars.mathA)));
 
 		switch (ast.operator.value) {
 			case "+":
-				this.add(this.gen.gvMath(vars.mathA, vars.mathB, "AddValues"));
+				this.add(this.gen.gvMath(this.vn(vars.mathA), this.vn(vars.mathB), "AddValues"));
 				break;
 			case "-":
-				this.add(this.gen.gvMath(vars.mathA, vars.mathB, "SubtractValues"));
+				this.add(this.gen.gvMath(this.vn(vars.mathA), this.vn(vars.mathB), "SubtractValues"));
 				break;
 			case "*":
-				this.add(this.gen.gvMath(vars.mathA, vars.mathB, "MultiplyValues"));
+				this.add(this.gen.gvMath(this.vn(vars.mathA), this.vn(vars.mathB), "MultiplyValues"));
 				break;
 			case "==":
 			case "!=":
@@ -281,9 +285,9 @@ class Compiler {
 			case ">=":
 			case "<":
 			case "<=":
-				const cond = this.gen.gvGvComp(vars.mathA, vars.mathB, ast.operator.value);
-				const setOne = this.gen.gvSet(vars.mathB, 1);
-				const setZero = this.gen.gvSet(vars.mathB, 0);
+				const cond = this.gen.gvGvComp(this.vn(vars.mathA), this.vn(vars.mathB), ast.operator.value);
+				const setOne = this.gen.gvSet(this.vn(vars.mathB), 1);
+				const setZero = this.gen.gvSet(this.vn(vars.mathB), 0);
 				this.add(this.gen.simpleConditional("mathComp", cond, setOne, setZero));
 				break;
 
@@ -291,7 +295,7 @@ class Compiler {
 				throw new Error(`Unhandled operator: ${ast.operator.value}`);
 		}
 
-		this.add(this.gen.gvCopy(vars.mathB, vars.result));
+		this.add(this.gen.gvCopy(this.vn(vars.mathB), this.vn(vars.result)));
 		this.push();
 	}
 
@@ -299,16 +303,16 @@ class Compiler {
 		this.compileAst(ast.operand);
 		switch (ast.operator.value) {
 			case "-":
-				this.add(this.gen.gvSet(vars.mathA, -1));
+				this.add(this.gen.gvSet(this.vn(vars.mathA), -1));
 				this.pop();
-				this.add(this.gen.gvMath(vars.mathA, vars.result, "MultiplyValues"));
+				this.add(this.gen.gvMath(this.vn(vars.mathA), this.vn(vars.result), "MultiplyValues"));
 				this.push();
 				break;
 			case "!":
 				this.pop();
-				const setZero = this.gen.gvSet(vars.result, 0);
-				const setOne = this.gen.gvSet(vars.result, 1);
-				this.add(this.gen.simpleConditional("boolNegate", this.gen.gvNotZero(vars.result), setZero, setOne));
+				const setZero = this.gen.gvSet(this.vn(vars.result), 0);
+				const setOne = this.gen.gvSet(this.vn(vars.result), 1);
+				this.add(this.gen.simpleConditional("boolNegate", this.gen.gvNotZero(this.vn(vars.result)), setZero, setOne));
 				break;
 			default:
 				throw new Error(`Unhandled unary operator ${ast.operator.value}`);
@@ -329,7 +333,7 @@ class Compiler {
 
 		this.compileAst(ast.condition);
 		this.pop();
-		const cond = this.gen.gvNotZero(vars.result);
+		const cond = this.gen.gvNotZero(this.vn(vars.result));
 		const thenAction = this.gen.callSequence(thenId);
 		const elseAction = elseId ? this.gen.callSequence(elseId) : null;
 
@@ -349,7 +353,7 @@ class Compiler {
 		this.withContext(whileCondSeq, () => {
 			this.compileAst(ast.condition);
 			this.pop();
-			const cond = this.gen.gvNotZero(vars.result);
+			const cond = this.gen.gvNotZero(this.vn(vars.result));
 			const action = this.gen.callSequence(whileBodySeq.getValue("id"));
 			this.add(this.gen.simpleConditional("whileCondCheck", cond, action));
 		});
@@ -383,7 +387,7 @@ class Compiler {
 		this.withContext(fnSeq, () => {
 			ast.parameters.reverse().forEach(param => {
 				this.pop();
-				this.add(this.gen.gvCopy(vars.result, param.value));
+				this.add(this.gen.gvCopy(this.vn(vars.result), this.vn(param.value)));
 			});
 
 			ast.body.forEach(child => this.compileAst(child));
