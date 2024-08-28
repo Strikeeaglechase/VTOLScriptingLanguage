@@ -1,14 +1,14 @@
 import { VTNode } from "../vtsParser.js";
 import {
-	SequenceKeys,
-	EventKeys,
-	EventTargetKeys,
-	ParamInfoKeys,
-	ConditionalActionKeys,
 	BaseBlockKeys,
 	CompKeys,
+	ConditionalActionKeys,
 	ConditionalKeys,
-	ParamAttrInfoKeys
+	EventKeys,
+	EventTargetKeys,
+	ParamAttrInfoKeys,
+	ParamInfoKeys,
+	SequenceKeys
 } from "../vtTypes.js";
 import { Compiler } from "./compiler.js";
 
@@ -21,11 +21,10 @@ interface NodeInfo {
 const nodeInfos: NodeInfo[] = [];
 function Track(target: Object, propertyKey: string, descriptor: PropertyDescriptor) {
 	const orgFn = descriptor.value as Function;
-
 	descriptor.value = function (...args: any[]) {
 		// console.log(propertyKey, args)
 		const result = orgFn.apply(this, args);
-		nodeInfos.push({
+		this["nodeInfos"].push({
 			methodName: propertyKey,
 			arguments: args,
 			result: result
@@ -35,93 +34,8 @@ function Track(target: Object, propertyKey: string, descriptor: PropertyDescript
 	};
 }
 
-function stringifyArg(vts: VTNode, arg: any) {
-	if (typeof arg == "number" && arg >= 10000) {
-		// Maybe an id ref of something?
-		const children = vts.getAllChildren();
-		const matchingId = children.find(c => c.getValue("id") == arg);
-
-		if (matchingId) {
-			const seqName = matchingId.getValue("sequenceName");
-
-			if (seqName) return seqName;
-
-			return `${matchingId.name}[${arg}]`;
-		}
-	}
-	return JSON.stringify(arg);
-}
-
-function describeEvents(vts: VTNode, events: VTNode[]) {
-	let result = "";
-	events.forEach(event => {
-		const nodeInfo = nodeInfos.find(n => n.result == event);
-		if (!nodeInfo) {
-			result += `No info for ${JSON.stringify(event)}\n`;
-		} else {
-			const args = nodeInfo.arguments.map(a => `${stringifyArg(vts, a)}`).join(", ");
-			result += `${nodeInfo.methodName}(${args})\n`;
-		}
-	});
-
-	return result;
-}
-
-function describeSequence(vts: VTNode, sequence: VTNode) {
-	const events = sequence.getAllChildrenWithName("EventTarget");
-	const dResult = describeEvents(vts, events)
-		.split("\n")
-		.map(l => "\t" + l)
-		.join("\n");
-
-	return `${sequence.getValue("sequenceName")} (${sequence.getValue("id")})\n` + dResult;
-}
-
-function describeConditional(vts: VTNode, conditional: VTNode) {
-	const conditionalNodeInfo = nodeInfos.find(n => n.result == conditional);
-	const compInfos = conditional.getChildrenWithName("COMP").map(n => nodeInfos.find(ni => ni.result == n));
-	let result = "";
-
-	if (conditionalNodeInfo) {
-		const args = conditionalNodeInfo.arguments.map(a => `${stringifyArg(vts, a)}`).join(", ");
-		result += `\t${conditionalNodeInfo.methodName}(${args})`;
-	} else {
-		result += `\tCONDITIONAL`;
-
-		compInfos.forEach(info => {
-			if (!info) {
-				result += `\n\t\tUnknown cond`;
-				return;
-			}
-			const compArgs = info.arguments.map(a => `${stringifyArg(vts, a)}`).join(", ");
-			result += `\n\t\t${info.methodName}(${compArgs})`;
-		});
-	}
-
-	return result;
-}
-
-function describeConditionalAction(vts: VTNode, action: VTNode) {
-	const bb = action.getNode("BASE_BLOCK");
-	const name = bb.getValue("{blockName}");
-	const conditional = bb.getNode("CONDITIONAL");
-
-	return `${name} (${action.getValue("id")})\n` + describeConditional(vts, conditional) + "\n";
-}
-
-function collectTrackedEvents(vts: VTNode) {
-	const sequences = vts.getAllChildrenWithName("SEQUENCE");
-	const condActions = vts.getAllChildrenWithName("ConditionalAction");
-
-	let output = "";
-	sequences.forEach(seq => (output += `[SEQ] ` + describeSequence(vts, seq) + "\n"));
-	output += "\n";
-	condActions.forEach(cact => (output += `[CACT] ` + describeConditionalAction(vts, cact) + "\n"));
-
-	return output;
-}
-
 class VTSGenerator {
+	public nodeInfos: NodeInfo[] = [];
 	public get context() {
 		return this.compiler.context;
 	}
@@ -432,4 +346,4 @@ class VTSGenerator {
 	}
 }
 
-export { VTSGenerator, collectTrackedEvents };
+export { VTSGenerator, NodeInfo };

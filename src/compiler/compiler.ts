@@ -1,17 +1,6 @@
 import { AST } from "../parser/ast.js";
-import { readVtsFile, VTNode } from "../vtsParser.js";
-import {
-	BaseBlockKeys,
-	CompKeys,
-	ConditionalActionKeys,
-	ConditionalKeys,
-	EventKeys,
-	EventTargetKeys,
-	GVKeys,
-	ParamAttrInfoKeys,
-	ParamInfoKeys,
-	SequenceKeys
-} from "../vtTypes.js";
+import { VTNode } from "../vtsParser.js";
+import { BaseBlockKeys, GVKeys } from "../vtTypes.js";
 import { Context, GV } from "./context.js";
 import { VTSGenerator } from "./vtsGenerator.js";
 
@@ -57,7 +46,7 @@ class Compiler {
 	private pushSeqId = 0;
 	private popSeqId = 0;
 
-	private gen: VTSGenerator;
+	public gen: VTSGenerator;
 
 	private get currentVTContext() {
 		return this.blockContextStack[this.blockContextStack.length - 1];
@@ -87,9 +76,8 @@ class Compiler {
 		return this._nextId++;
 	}
 
-	constructor(private ast: AST.Program, sourceVtsContent: string) {
-		this.vts = readVtsFile(sourceVtsContent);
-
+	constructor(private ast: AST.Program, orgVts: VTNode) {
+		this.vts = orgVts.clone();
 		this.gen = new VTSGenerator(this, this.nextId.bind(this), this.vts);
 
 		const context = new Context(null, this.nextId.bind(this));
@@ -182,7 +170,7 @@ class Compiler {
 
 	public compile() {
 		const entrypointSequence = this.gen.sequence("Entrypoint");
-		entrypointSequence.setValue("startImmediately", true);
+		entrypointSequence.setValue("startImmediately", true, true);
 		this.blockContextStack.push(entrypointSequence);
 
 		for (const key in vars) {

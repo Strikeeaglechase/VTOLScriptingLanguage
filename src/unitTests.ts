@@ -1,11 +1,12 @@
 import chalk from "chalk";
 import fs from "fs";
+
+import { Compiler } from "./compiler/compiler.js";
+import { Emulator } from "./emulator/emulator.js";
+import { Parser } from "./parser/parser.js";
 import { Preprocessor } from "./parser/preprocessor.js";
 import { Tokenizer } from "./parser/tokenizer.js";
-import { Parser } from "./parser/parser.js";
-import { Compiler } from "./compiler/compiler.js";
-import { VTNode } from "./vtsParser.js";
-import { Emulator } from "./emulator/emulator.js";
+import { readVtsFile, VTNode } from "./vtsParser.js";
 
 class UnitTester {
 	private testFiles: string[] = [];
@@ -39,6 +40,7 @@ class UnitTester {
 	private runTest(testFile: string) {
 		const sourcePath = `../unitTests/${testFile}`;
 		const sourceVts = fs.readFileSync("../unitTests/base.vts", "utf-8");
+		const sourceVtsNode = readVtsFile(sourceVts);
 		const file = fs.readFileSync(sourcePath, "utf-8");
 		const expectedMatch = file.matchAll(/\/\/ ?EXPECT (.+)=(.+)/gi);
 		const expected = [...expectedMatch].map(m => ({ varName: m[1], value: m[2] }));
@@ -52,7 +54,7 @@ class UnitTester {
 			const tokenStream = tokenizer.parse();
 			const parser = new Parser(tokenStream);
 			const ast = parser.parse();
-			const compiler = new Compiler(ast, sourceVts);
+			const compiler = new Compiler(ast, sourceVtsNode);
 			resultVts = compiler.compile();
 		} catch (e) {
 			console.log(chalk.red(`Test ${testFile} failed to compile because ${e.message}`));

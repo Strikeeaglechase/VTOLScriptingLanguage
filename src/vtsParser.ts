@@ -20,7 +20,10 @@ class VTNode<T extends string = string> {
 		return this.values[key] as Res;
 	}
 
-	public setValue<K extends T>(key: K, value: VTValue) {
+	public setValue<K extends T>(key: K, value: VTValue, allowOverwrite = false) {
+		if (!allowOverwrite && key in this.values) {
+			throw new Error(`Attempt to mutate existing value ${key}`);
+		}
 		this.values[key] = value;
 	}
 
@@ -52,6 +55,13 @@ class VTNode<T extends string = string> {
 
 	public findChildWithName(name: string) {
 		return this.getAllChildren().find(child => child.name === name);
+	}
+
+	public clone(): VTNode<T> {
+		const newNode = new VTNode(this.name);
+		newNode.values = { ...this.values };
+		newNode.children = this.children.map(child => child.clone());
+		return newNode;
 	}
 }
 
