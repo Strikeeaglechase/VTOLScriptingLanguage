@@ -313,6 +313,7 @@ class Compiler {
 				const setZero = this.gen.gvSet(this.vn(vars.result), 0);
 				const setOne = this.gen.gvSet(this.vn(vars.result), 1);
 				this.add(this.gen.simpleConditional("boolNegate", this.gen.gvNotZero(this.vn(vars.result)), setZero, setOne));
+				this.push();
 				break;
 			default:
 				throw new Error(`Unhandled unary operator ${ast.operator.value}`);
@@ -449,4 +450,4 @@ class Compiler {
 	}
 }
 
-export { Compiler };
+export { Compiler, vars };

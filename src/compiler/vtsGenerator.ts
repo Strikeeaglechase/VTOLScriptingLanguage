@@ -10,7 +10,6 @@ import {
 	ParamInfoKeys,
 	SequenceKeys
 } from "../vtTypes.js";
-import { Compiler } from "./compiler.js";
 
 interface NodeInfo {
 	methodName: string;
@@ -35,9 +34,6 @@ function Track(target: Object, propertyKey: string, descriptor: PropertyDescript
 
 class VTSGenerator {
 	public nodeInfos: NodeInfo[] = [];
-	// public get context() {
-	// 	return this.compiler.context;
-	// }
 
 	constructor(private nextId: () => number, private vts: VTNode) {}
 

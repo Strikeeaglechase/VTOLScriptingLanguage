@@ -1,14 +1,15 @@
 import fs from "fs";
 
 import { Compiler } from "./compiler/compiler.js";
-import { IRGenerator } from "./compiler/irGenerator.js";
+import { IRCompiler } from "./compiler/ir/irCompiler.js";
+import { IRGenerator } from "./compiler/ir/irGenerator.js";
+import { IROptimizer } from "./compiler/ir/irOptimizer.js";
 import { Emulator } from "./emulator/emulator.js";
 import { Parser } from "./parser/parser.js";
 import { Preprocessor } from "./parser/preprocessor.js";
 import { Tokenizer } from "./parser/tokenizer.js";
 import { UnitTester } from "./unitTests.js";
 import { readVtsFile, writeVtsFile } from "./vtsParser.js";
-import { IRCompiler } from "./compiler/irCompiler.js";
 
 let sourceVtsPath = "C:/Program Files (x86)/Steam/steamapps/common/VTOL VR/CustomScenarios/Campaigns/chaseFeetPics/snippet1_2024-08-05/snippet1_2024-08-05.vts";
 let sourceCodePath: string;
@@ -36,21 +37,22 @@ fs.writeFileSync("../debug/output.vts", writeVtsFile(compiledVts));
 const irGenerator = new IRGenerator(compiledVts, compiler.gen.nodeInfos);
 const ir = irGenerator.generateIR();
 fs.writeFileSync("../debug/ir.json", JSON.stringify(ir, null, 2));
-fs.writeFileSync("../debug/ir.txt", irGenerator.debug(ir));
-const irCompiler = new IRCompiler(ir, orgVts);
+fs.writeFileSync("../debug/ir.txt", IRGenerator.debug(ir));
+const irOptimizer = new IROptimizer(ir);
+const optimizedIR = irOptimizer.optimize();
+fs.writeFileSync("../debug/optimizedIR.txt", IRGenerator.debug(optimizedIR));
+const irCompiler = new IRCompiler(optimizedIR, orgVts);
 const irCompiledVts = irCompiler.compile();
 fs.writeFileSync("../debug/irresult.vts", writeVtsFile(irCompiledVts));
-
-compiledVts.diff(irCompiledVts,"");
 
 compiledVts.setValue("scenarioID", "output", true);
 fs.writeFileSync("C:/Program Files (x86)/Steam/steamapps/common/VTOL VR/CustomScenarios/Campaigns/chaseFeetPics/output/output.vts", writeVtsFile(compiledVts));
 
-const emulator = new Emulator(compiledVts, false);
+const emulator = new Emulator(irCompiledVts, false);
 emulator.execute();
 
-console.log(emulator.getGvByName("v"));
-// console.log(emulator.getGvByName("z"));
+console.log(emulator.getGvByName("n"));
+console.log(`Executed ${emulator.totalExecutedEventCount} events`);
 
 const unitTests = new UnitTester();
-// unitTests.runTests();
+unitTests.runTests();

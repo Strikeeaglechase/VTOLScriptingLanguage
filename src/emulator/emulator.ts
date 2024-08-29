@@ -22,7 +22,6 @@ class Emulator {
 
 	private executeSequence(sequence: VTNode<SequenceKeys>) {
 		const events = sequence.getAllChildrenWithName("EventTarget");
-		if (events.length == 1) return;
 		// console.log(`Executing sequence ${sequence.getValue("sequenceName")} with ${events.length} events`);
 
 		this.depth++;

@@ -1,5 +1,5 @@
-import { VTNode } from "../vtsParser.js";
-import { NodeInfo } from "./vtsGenerator.js";
+import { VTNode } from "../../vtsParser.js";
+import { NodeInfo } from "../vtsGenerator.js";
 
 type IRArg = { type: "node"; value: IREvent } | { type: "value"; value: any };
 
@@ -21,7 +21,7 @@ interface IRConditional {
 }
 
 interface IRConditionalAction {
-	id: string;
+	id: number;
 	name: string;
 
 	if: IRConditional;
@@ -156,7 +156,7 @@ class IRGenerator {
 		return ir;
 	}
 
-	private stringifyArg(arg: IRArg, ir: IR) {
+	private static stringifyArg(arg: IRArg, ir: IR) {
 		if (arg.type == "value") {
 			if (typeof arg.value == "number" && arg.value >= 10000) {
 				const seqRef = ir.sequences.find(s => s.id == arg.value);
@@ -179,12 +179,12 @@ class IRGenerator {
 		return this.stringifyEvent(arg.value, ir);
 	}
 
-	private stringifyEvent(event: IREvent, ir: IR) {
+	private static stringifyEvent(event: IREvent, ir: IR) {
 		const args = event.args.map(a => this.stringifyArg(a, ir));
 		return `${event.method}(${args.join(", ")})`;
 	}
 
-	private stringifyConditional(cond: IRConditional, ir: IR) {
+	private static stringifyConditional(cond: IRConditional, ir: IR) {
 		if (cond.method) {
 			const args = cond.args.map(a => this.stringifyArg(a, ir));
 			return `${cond.method}(${args.join(", ")})`;
@@ -198,7 +198,7 @@ class IRGenerator {
 		}
 	}
 
-	public debug(ir: IR) {
+	public static debug(ir: IR) {
 		let result = ``;
 		ir.sequences.forEach(s => {
 			result += `[SEQ] ${s.name} (${s.id})\n`;
@@ -239,4 +239,4 @@ class IRGenerator {
 	}
 }
 
-export { IRGenerator, IR, IREvent, IRSequence, IRConditional, IRConditionalAction, IRArg };
+export { IRGenerator, IR, IREvent, IRSequence, IRConditional, IRConditionalAction, IRArg, IRGV };
