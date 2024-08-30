@@ -25,10 +25,11 @@ const vars = {
 	result: "result",
 	mathA: "mathA",
 	mathB: "mathB",
+	stackOverflowFlag: "stackOverflowFlag",
 	sp: "sp"
 };
 
-const stackSize = 15;
+const stackSize = 16;
 
 const stackIdx = (i: number) => `_stack_${i}`;
 
@@ -120,6 +121,11 @@ class Compiler {
 
 				baseBlock.addChild(elseIf);
 			}
+
+			const elseBlock = new VTNode<"eventName">("ELSE_ACTIONS");
+			elseBlock.setValue("eventName", null);
+			elseBlock.addChild(this.gen.gvSet(this.vn(vars.stackOverflowFlag), 1));
+			baseBlock.addChild(elseBlock);
 
 			// Set, then increment
 			const pushBlockEvents = pushSeq.findChildWithName("EventInfo");

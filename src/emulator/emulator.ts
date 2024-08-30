@@ -1,3 +1,4 @@
+import { vars } from "../compiler/compiler.js";
 import { VTNode } from "../vtsParser.js";
 import { CompKeys, ConditionalActionKeys, ConditionalKeys, EventTargetKeys, ParamInfoKeys, SequenceKeys } from "../vtTypes.js";
 
@@ -62,6 +63,8 @@ class Emulator {
 				this.handleEventSequenceEvent(event);
 				break;
 		}
+
+		this.checkStack();
 	}
 
 	private fireEvents(events: VTNode<EventTargetKeys>[]) {
@@ -255,6 +258,13 @@ class Emulator {
 		// console.log(`Starting ${startImmediatelySequences.length} sequences immediately`);
 
 		startImmediatelySequences.forEach(sequence => this.executeSequence(sequence));
+	}
+
+	private checkStack() {
+		const gv = this.getGvByName(vars.stackOverflowFlag);
+		if (gv.value) {
+			throw new Error("Stack overflow");
+		}
 	}
 
 	public getGvByName(name: string) {

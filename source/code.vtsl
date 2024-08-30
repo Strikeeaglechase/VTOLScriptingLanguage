@@ -1,5 +1,13 @@
-// EXPECT x=10
-let x = 0;
-while (x < 10) {
-	x += 1;
+fn three() {
+	return 3;
 }
+
+fn two() {
+	return 2;
+}
+
+fn giveFive() {
+	return three() + two();
+}
+
+giveFive();
