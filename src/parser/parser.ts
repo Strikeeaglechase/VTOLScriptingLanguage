@@ -4,6 +4,7 @@ import { operandPrecedence, Token, TokenType } from "./tokenizer.js";
 
 type Positional = { line: number; column: number; lineEnd?: number; columnEnd?: number };
 function getLastPos(ast: Positional | Positional[], fallback?: Positional) {
+	if (ast === undefined && fallback === undefined) throw new Error("No fallback provided for getLastPos");
 	if ((Array.isArray(ast) && ast.length == 0) || !ast) return getLastPos(fallback);
 	const last = Array.isArray(ast) ? ast[ast.length - 1] : ast;
 	if (last.lineEnd) {
@@ -16,6 +17,14 @@ function getLastPos(ast: Positional | Positional[], fallback?: Positional) {
 	return {
 		line: last.line,
 		column: last.column
+	};
+}
+
+function getLastPosNamed(ast: Positional | Positional[], fallback?: Positional) {
+	const last = getLastPos(ast, fallback);
+	return {
+		lineEnd: last.line,
+		columnEnd: last.column
 	};
 }
 
@@ -98,13 +107,14 @@ class Parser {
 
 		const op: Token = { type: TokenType.Operand, value: operation[0], line: left.line, column: left.column };
 
+		const right = this.parseAst();
 		const binOp: AST.BinaryOperation = {
 			type: AST.Type.BinaryOperation,
 			left: left,
-			right: this.parseAst(),
+			right: right,
 			operator: op,
 
-			...correctOrderPos(left, getLastPos(left))
+			...correctOrderPos(left, getLastPos(right))
 		};
 
 		const assignment: AST.VariableAssignment = {
@@ -112,8 +122,7 @@ class Parser {
 			name: left.name,
 			expression: binOp,
 
-			line: left.line,
-			column: left.column
+			...correctOrderPos(left, getLastPos(binOp))
 		};
 
 		return assignment;
@@ -142,7 +151,7 @@ class Parser {
 				left: left,
 				right: right,
 
-				...correctOrderPos(left, right)
+				...correctOrderPos(left, getLastPos(right))
 			};
 
 			return this.handleBinaryOperation(binOp, prec);
@@ -203,12 +212,14 @@ class Parser {
 		switch (operand.value) {
 			case "-":
 			case "!":
+				const expression = this.parseAst();
 				const operandNode: AST.UnaryOperation = {
 					type: AST.Type.UnaryOperation,
 					operator: operand,
-					operand: this.parseAst(),
+					operand: expression,
 					line: operand.line,
-					column: operand.column
+					column: operand.column,
+					...getLastPosNamed(expression)
 				};
 				return operandNode;
 
@@ -223,8 +234,9 @@ class Parser {
 		const retAst: AST.Return = {
 			type: AST.Type.Return,
 			value: retValue,
-			line: retValue.line,
-			column: retValue.column
+			line: ret.line,
+			column: ret.column,
+			...getLastPosNamed(retValue)
 		};
 
 		return retAst;
@@ -258,7 +270,9 @@ class Parser {
 			expression: value,
 
 			line: identifier.line,
-			column: identifier.column
+			column: identifier.column,
+
+			...getLastPosNamed(value)
 		};
 
 		return variableAssignment;
@@ -272,7 +286,8 @@ class Parser {
 			arguments: args,
 
 			line: identifier.line,
-			column: identifier.column
+			column: identifier.column,
+			...getLastPosNamed(args, identifier)
 		};
 
 		return functionCall;
@@ -293,7 +308,9 @@ class Parser {
 				arguments: args,
 
 				line: identifier.line,
-				column: identifier.column
+				column: identifier.column,
+
+				...getLastPosNamed(args, identifier)
 			};
 
 			return methodCall;
@@ -305,7 +322,9 @@ class Parser {
 			property: property,
 
 			line: identifier.line,
-			column: identifier.column
+			column: identifier.column,
+
+			...getLastPosNamed(property)
 		};
 
 		return propertyAccess;
@@ -321,7 +340,9 @@ class Parser {
 			index: index,
 
 			line: identifier.line,
-			column: identifier.column
+			column: identifier.column,
+
+			...getLastPosNamed(index)
 		};
 
 		return indexAccess;
@@ -408,7 +429,9 @@ class Parser {
 			unitType: type,
 
 			line: define.line,
-			column: define.column
+			column: define.column,
+
+			...getLastPosNamed(values, type)
 		};
 
 		return unitDefine;
@@ -430,7 +453,9 @@ class Parser {
 			body: body,
 
 			line: forEach.line,
-			column: forEach.column
+			column: forEach.column,
+
+			...getLastPosNamed(body)
 		};
 
 		return forEachStatement;
@@ -449,7 +474,9 @@ class Parser {
 			body: body,
 
 			line: _while.line,
-			column: _while.column
+			column: _while.column,
+
+			...getLastPosNamed(body)
 		};
 
 		return whileStatement;
@@ -475,7 +502,9 @@ class Parser {
 			parameters: params,
 
 			line: fn.line,
-			column: fn.column
+			column: fn.column,
+
+			...getLastPosNamed(body)
 		};
 
 		return functionDeclaration;
@@ -493,7 +522,9 @@ class Parser {
 			expression: value,
 
 			line: letToken.line,
-			column: letToken.column
+			column: letToken.column,
+
+			...getLastPosNamed(value)
 		};
 
 		return variableDeclaration;
@@ -512,7 +543,9 @@ class Parser {
 			expression: value,
 
 			line: ref.line,
-			column: ref.column
+			column: ref.column,
+
+			...getLastPosNamed(value)
 		};
 
 		return unitReference;
@@ -548,7 +581,9 @@ class Parser {
 			else: elseBody.length > 0 ? elseBody : null,
 
 			line: _if.line,
-			column: _if.column
+			column: _if.column,
+
+			...getLastPosNamed(elseBody, getLastPos(elIfs, getLastPos(body)))
 		};
 
 		return ifStatement;
