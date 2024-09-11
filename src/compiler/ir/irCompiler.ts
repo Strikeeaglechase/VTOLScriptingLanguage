@@ -1,7 +1,7 @@
 import { VTNode } from "../../vtsParser.js";
-import { BaseBlockKeys, GVKeys } from "../../vtTypes.js";
+import { BaseBlockKeys, ConditionalKeys, EventKeys, GVKeys } from "../../vtTypes.js";
 import { VTSGenerator } from "../vtsGenerator.js";
-import { IR, IRArg, IRConditional, IRConditionalAction, IREvent, IRSequence } from "./irGenerator.js";
+import { IR, IRArg, IRConditional, IRConditionalAction, IREvent, IREventList, IRSequence } from "./irGenerator.js";
 
 class IRCompiler {
 	private vts: VTNode;
@@ -28,6 +28,7 @@ class IRCompiler {
 
 	public compile() {
 		this.createGvs();
+		this.gen.stackOverflowExceptionObjective();
 		this.ir.sequences.forEach(sequence => this.compileSequence(sequence));
 		this.ir.conditionalActions.forEach(ca => this.compileConditionalAction(ca));
 
@@ -41,7 +42,33 @@ class IRCompiler {
 		return this.gen[arg.value.method](...args);
 	}
 
-	private compileEventsInto(events: IREvent[], parent: VTNode) {
+	private compileEventsList(events: IREventList[], parent: VTNode) {
+		events.forEach((eventList, idx) => {
+			let target: VTNode;
+			if (idx == 0) {
+				const eventsListParent = parent.getChildrenWithName("EVENT");
+				const eventInfo = eventsListParent[eventsListParent.length - 1].getNode("EventInfo");
+				target = eventInfo;
+			} else {
+				const event = new VTNode<EventKeys>("EVENT");
+				event.setValue("nodeName", "Event");
+				const eventInfo = new VTNode("EventInfo");
+				eventInfo.setValue("eventName", null);
+				event.addChild(eventInfo);
+
+				if (eventList.startCondition) {
+					var cond = this.compileConditional(eventList.startCondition);
+					event.setValue("conditional", cond.getValue("id"));
+				}
+				parent.addChild(event);
+				target = eventInfo;
+			}
+
+			this.compileEvents(eventList.events, target);
+		});
+	}
+
+	private compileEvents(events: IREvent[], parent: VTNode) {
 		events.forEach(event => {
 			const args = event.args.map(a => this.evalArg(a));
 			const eventNode = this.gen[event.method](...args);
@@ -49,11 +76,15 @@ class IRCompiler {
 		});
 	}
 
-	private compileConditional(conditional: IRConditional) {
+	private compileConditional(conditional: IRConditional): VTNode<ConditionalKeys> {
 		if (!conditional.method) throw new Error(`Multimethod not implemented yet`);
 
 		const args = conditional.args.map(a => this.evalArg(a));
-		return this.gen[conditional.method](...args);
+		const cond = this.gen[conditional.method](...args);
+
+		this.vts.getNode("Conditionals").addChild(cond);
+
+		return cond;
 	}
 
 	private compileSequence(sequence: IRSequence) {
@@ -63,9 +94,7 @@ class IRCompiler {
 			seq.setValue("startImmediately", true, true);
 		}
 
-		const eventsListParent = seq.getChildrenWithName("EVENT");
-		const eventInfo = eventsListParent[eventsListParent.length - 1].getNode("EventInfo");
-		this.compileEventsInto(sequence.events, eventInfo);
+		this.compileEventsList(sequence.events, seq);
 	}
 
 	private compileConditionalAction(ca: IRConditionalAction) {
@@ -80,7 +109,7 @@ class IRCompiler {
 		// Then
 		const actionBlock = new VTNode<"eventName">("ACTIONS");
 		actionBlock.setValue("eventName", null);
-		this.compileEventsInto(ca.then, actionBlock);
+		this.compileEvents(ca.then, actionBlock);
 		baseBlock.addChild(actionBlock);
 
 		// Else Ifs
@@ -92,7 +121,7 @@ class IRCompiler {
 
 			const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
 			elseIfActionParent.setValue("eventName", null);
-			this.compileEventsInto(elseIfIr.then, elseIfActionParent);
+			this.compileEvents(elseIfIr.then, elseIfActionParent);
 			elseIf.addChild(elseIfConditional);
 			elseIf.addChild(elseIfActionParent);
 
@@ -103,7 +132,7 @@ class IRCompiler {
 		if (ca.else.length > 0) {
 			const elseBlock = new VTNode<"eventName">("ELSE_ACTIONS");
 			elseBlock.setValue("eventName", null);
-			this.compileEventsInto(ca.else, elseBlock);
+			this.compileEvents(ca.else, elseBlock);
 			baseBlock.addChild(elseBlock);
 		}
 	}

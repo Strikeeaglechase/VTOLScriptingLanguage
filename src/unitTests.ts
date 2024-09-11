@@ -26,15 +26,17 @@ class UnitTester {
 			.forEach(f => this.testFiles.push(f));
 	}
 
-	public runTests() {
+	public async runTests() {
 		const start = Date.now();
-		this.testFiles.forEach(f => {
+		const proms = this.testFiles.map(async f => {
 			try {
-				this.runTest(f);
+				await this.runTest(f);
 			} catch (e) {
 				console.log(`Test ${f} failed with error ${e}`);
+				console.log(e.stack);
 			}
 		});
+		await Promise.all(proms);
 		const end = Date.now();
 		let rStr = `${this.totalPassed}/${this.totalTests}`;
 		if (this.totalPassed == this.totalTests) rStr = chalk.green(rStr);
@@ -52,7 +54,7 @@ class UnitTester {
 		);
 	}
 
-	private runTest(testFile: string) {
+	private async runTest(testFile: string) {
 		const sourcePath = `../unitTests/${testFile}`;
 		const sourceVts = fs.readFileSync("../unitTests/base.vts", "utf-8");
 		const sourceVtsNode = readVtsFile(sourceVts);
@@ -86,11 +88,14 @@ class UnitTester {
 
 		const execStart = Date.now();
 		const emulatorUnopt = new Emulator(resultVtsUnopt);
-		emulatorUnopt.execute();
+		const errUnopt = await emulatorUnopt.execute().catch((e: Error) => e);
 		const emulatorOpt = new Emulator(resultVtsOpt);
-		emulatorOpt.execute();
+		const errOpt = await emulatorOpt.execute().catch((e: Error) => e);
 		const execEnd = Date.now();
 		this.execTime += execEnd - execStart;
+
+		if (errUnopt) throw errUnopt;
+		if (errOpt) throw errOpt;
 
 		this.totalLinesUnopt += emulatorUnopt.totalExecutedEventCount;
 		this.totalLinesOpt += emulatorOpt.totalExecutedEventCount;

@@ -8,10 +8,15 @@ interface IREvent {
 	args: IRArg[];
 }
 
+interface IREventList {
+	events: IREvent[];
+	startCondition?: IRConditional;
+}
+
 interface IRSequence {
 	name: string;
 	id: number;
-	events: IREvent[];
+	events: IREventList[];
 }
 
 interface IRConditional {
@@ -55,6 +60,24 @@ class IRGenerator {
 		return { type: "value", value: arg };
 	}
 
+	private parseEventsList(events: VTNode[]): IREventList[] {
+		return events.map(eventParent => {
+			const eventsNodes = eventParent.getAllChildrenWithName("EventTarget");
+			const events = this.parseEvents(eventsNodes);
+
+			let startCondition: IRConditional | undefined = undefined;
+			if (eventParent.getValue("conditional")) {
+				const conditionalParent = this.vts.getNode("Conditionals");
+				const conditionals = conditionalParent.getAllChildrenWithName("CONDITIONAL");
+				const conditional = conditionals.find(c => c.getValue("id") == eventParent.getValue("conditional"));
+
+				startCondition = this.parseConditional(conditional);
+			}
+
+			return { events, startCondition };
+		});
+	}
+
 	private parseEvents(events: VTNode[]): IREvent[] {
 		return events.map(event => {
 			const nodeInfo = this.nodeInfos.find(n => n.result == event);
@@ -68,11 +91,11 @@ class IRGenerator {
 	}
 
 	private parseSequence(sequence: VTNode): IRSequence {
-		const events = sequence.getAllChildrenWithName("EventTarget");
+		const events = sequence.getAllChildrenWithName("EVENT");
 		return {
 			name: sequence.getValue("sequenceName"),
 			id: sequence.getValue("id"),
-			events: this.parseEvents(events)
+			events: this.parseEventsList(events)
 		};
 	}
 
@@ -202,8 +225,13 @@ class IRGenerator {
 		let result = ``;
 		ir.sequences.forEach(s => {
 			result += `[SEQ] ${s.name} (${s.id})\n`;
-			s.events.forEach(e => {
-				result += `\t${this.stringifyEvent(e, ir)}\n`;
+			s.events.forEach(eventList => {
+				if (eventList.startCondition) {
+					result += `\tWAIT_UNTIL ${this.stringifyConditional(eventList.startCondition, ir)}\n`;
+				}
+				eventList.events.forEach(e => {
+					result += `\t${this.stringifyEvent(e, ir)}\n`;
+				});
 			});
 			result += "\n";
 		});
@@ -239,4 +267,4 @@ class IRGenerator {
 	}
 }
 
-export { IRGenerator, IR, IREvent, IRSequence, IRConditional, IRConditionalAction, IRArg, IRGV };
+export { IRGenerator, IR, IREvent, IRSequence, IRConditional, IRConditionalAction, IRArg, IRGV, IREventList };

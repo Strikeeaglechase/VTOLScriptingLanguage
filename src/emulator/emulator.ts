@@ -2,6 +2,7 @@ import { vars } from "../compiler/compiler.js";
 import { VTNode } from "../vtsParser.js";
 import { CompKeys, ConditionalActionKeys, ConditionalKeys, EventTargetKeys, ParamInfoKeys, SequenceKeys } from "../vtTypes.js";
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 interface GV {
 	name: string;
 	id: number;
@@ -10,8 +11,8 @@ interface GV {
 
 class Emulator {
 	private gvs: GV[] = [];
-	private depth = -1;
 	public totalExecutedEventCount = 0;
+	public execLog: string = "";
 
 	constructor(private vts: VTNode, private debug = false) {
 		this.gvs = this.vts.getAllChildrenWithName("gv").map(gv => {
@@ -21,21 +22,51 @@ class Emulator {
 		});
 	}
 
-	private executeSequence(sequence: VTNode<SequenceKeys>) {
-		const events = sequence.getAllChildrenWithName("EventTarget");
-		// console.log(`Executing sequence ${sequence.getValue("sequenceName")} with ${events.length} events`);
+	private async waitForCondition(condId: number) {
+		const conditionals = this.vts.getNode("Conditionals").getAllChildrenWithName("CONDITIONAL");
+		const condition = conditionals.find(c => c.getValue("id") === condId);
 
-		this.depth++;
-		events.forEach(event => {
-			this.fireEvent(event);
+		return new Promise<void>(res => {
+			const check = () => {
+				if (this.evaluateCondition(condition)) {
+					res();
+				} else {
+					setTimeout(check, 10);
+				}
+			};
+			check();
 		});
-		this.depth--;
 	}
 
-	private debugEvent(event: VTNode<EventTargetKeys>) {
-		if (!this.debug) return;
+	private async executeSequence(sequence: VTNode<SequenceKeys>, depth: number) {
+		const name = sequence.getValue("sequenceName");
+		if (this.debug) this.log("\t".repeat(depth) + `Executing sequence: ${name}`);
+		const events = sequence.getAllChildrenWithName("EVENT");
 
-		let result = "\t".repeat(this.depth);
+		for (const event of events) {
+			const eventStartCondition = event.getValue("conditional") as number;
+			if (eventStartCondition) {
+				await this.waitForCondition(eventStartCondition);
+
+				const conditionals = this.vts.getNode("Conditionals").getAllChildrenWithName("CONDITIONAL");
+				const jumpFlag = conditionals
+					.find(c => c.getValue("id") === eventStartCondition)
+					.getNode("COMP")
+					.getValue("c_value");
+
+				let result = "\t".repeat(depth + 1);
+				result += `<WAITED> ${jumpFlag}`;
+				if (this.debug) this.log(result);
+			}
+
+			const eventTargets = event.getAllChildrenWithName("EventTarget");
+			await this.fireEvents(eventTargets, depth + 1);
+		}
+	}
+
+	private debugEvent(event: VTNode<EventTargetKeys>, depth: number) {
+		if (!this.debug) return;
+		let result = "\t".repeat(depth);
 		switch (event.getValue("targetType")) {
 			case "System":
 				result += event.getValue("methodName") + " " + this.parseEventArgsToString(event).join(", ");
@@ -47,30 +78,31 @@ class Emulator {
 				break;
 		}
 
-		console.log(result);
+		this.log(result);
 	}
 
-	private fireEvent(event: VTNode<EventTargetKeys>) {
-		this.debugEvent(event);
+	private fireEvent(event: VTNode<EventTargetKeys>, depth: number) {
+		this.debugEvent(event, depth);
 		this.totalExecutedEventCount++;
 		// const key = `${event.getValue("targetType")}.${event.getValue("targetID")}.${event.getValue("methodName")}`;
 		// console.log(`Firing event: ${key}`);
 		switch (event.getValue("targetType")) {
 			case "System":
-				this.handleSystemEvent(event);
+				this.handleSystemEvent(event, depth);
 				break;
 			case "Event_Sequences":
-				this.handleEventSequenceEvent(event);
+				this.handleEventSequenceEvent(event, depth);
 				break;
 		}
 
 		this.checkStack();
 	}
 
-	private fireEvents(events: VTNode<EventTargetKeys>[]) {
-		// this.depth++;
-		events.forEach(event => this.fireEvent(event));
-		// this.depth--;
+	private async fireEvents(events: VTNode<EventTargetKeys>[], depth: number) {
+		for (const event of events) {
+			this.fireEvent(event, depth);
+			await delay(0); // Simulate waitForNextFrame
+		}
 	}
 
 	private parseEventArgsToString(event: VTNode<EventTargetKeys>) {
@@ -113,12 +145,12 @@ class Emulator {
 		});
 	}
 
-	private handleSystemEvent(event: VTNode<EventTargetKeys>) {
+	private handleSystemEvent(event: VTNode<EventTargetKeys>, depth: number) {
 		const targetId = event.getValue("targetID");
 
 		if (targetId == 0 && event.getValue("methodName") == "FireConditionalAction") {
 			const [ca] = this.parseEventArgs(event) as [VTNode<ConditionalActionKeys>];
-			this.handleConditionalAction(ca);
+			this.handleConditionalAction(ca, depth + 1);
 			return;
 		}
 
@@ -210,14 +242,14 @@ class Emulator {
 		}
 	}
 
-	private handleConditionalAction(ca: VTNode<ConditionalActionKeys>) {
+	private handleConditionalAction(ca: VTNode<ConditionalActionKeys>, depth: number) {
 		const bb = ca.getNode("BASE_BLOCK");
 		const baseCondition = bb.getNode("CONDITIONAL");
 		const baseIsTrue = this.evaluateCondition(baseCondition);
 		if (baseIsTrue) {
 			const baseAction = bb.getNode("ACTIONS");
 			const events = baseAction.getAllChildrenWithName("EventTarget");
-			this.fireEvents(events);
+			this.fireEvents(events, depth);
 		} else {
 			const elseIfBlocks = bb.getAllChildrenWithName("ELSE_IF");
 			for (const elseIfBlock of elseIfBlocks) {
@@ -226,7 +258,7 @@ class Emulator {
 				if (isTrue) {
 					const actions = elseIfBlock.getNode("ACTIONS");
 					const events = actions.getAllChildrenWithName("EventTarget");
-					this.fireEvents(events);
+					this.fireEvents(events, depth);
 					return;
 				}
 			}
@@ -235,35 +267,49 @@ class Emulator {
 			if (elseBlock) {
 				// const actions = elseBlock.getNode("ACTIONS");
 				const events = elseBlock.getAllChildrenWithName("EventTarget");
-				this.fireEvents(events);
+				this.fireEvents(events, depth);
 			}
 		}
 	}
 
-	private handleEventSequenceEvent(event: VTNode<EventTargetKeys>) {
+	private handleEventSequenceEvent(event: VTNode<EventTargetKeys>, depth: number) {
 		const sequence = this.vts.getAllChildrenWithName<SequenceKeys>("SEQUENCE").find(s => s.getValue("id") === event.getValue("targetID"));
 		if (!sequence) throw new Error(`Could not find sequence with ID ${event.getValue("targetID")}`);
 
 		switch (event.getValue("methodName")) {
 			case "Restart":
-				this.executeSequence(sequence);
+				this.executeSequence(sequence, depth);
 				break;
 			default:
 				throw new Error(`Unhandled event sequence method name: ${event.getValue("methodName")}`);
 		}
 	}
 
-	public execute() {
-		const startImmediatelySequences = this.vts.getAllChildrenWithName<SequenceKeys>("SEQUENCE").filter(s => s.getValue("startImmediately"));
-		// console.log(`Starting ${startImmediatelySequences.length} sequences immediately`);
+	private waitForHalt() {
+		return new Promise<void>(res => {
+			const check = () => {
+				const jumpFlag = this.getGvByName(vars.jumpFlag);
+				if (jumpFlag.value == -1) {
+					if (this.debug) this.log(`Jump flag set to -1, halting`);
+					res();
+				} else {
+					setTimeout(check, 10);
+				}
+			};
+			check();
+		});
+	}
 
-		startImmediatelySequences.forEach(sequence => this.executeSequence(sequence));
+	public async execute() {
+		const startImmediatelySequences = this.vts.getAllChildrenWithName<SequenceKeys>("SEQUENCE").filter(s => s.getValue("startImmediately"));
+		startImmediatelySequences.forEach(sequence => this.executeSequence(sequence, 0));
+		await this.waitForHalt();
 	}
 
 	private checkStack() {
 		const gv = this.getGvByName(vars.stackOverflowFlag);
 		if (gv.value) {
-			throw new Error("Stack overflow");
+			// throw new Error("Stack overflow");
 		}
 	}
 
@@ -273,6 +319,10 @@ class Emulator {
 
 	private getGvById(id: number) {
 		return this.gvs.find(gv => gv.id === id);
+	}
+
+	private log(str: string) {
+		this.execLog += str + "\n";
 	}
 }
 

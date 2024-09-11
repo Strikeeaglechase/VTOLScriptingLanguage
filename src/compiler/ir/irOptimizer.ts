@@ -1,7 +1,7 @@
 import { vars } from "../compiler.js";
 import { IR, IREvent, IRGV, IRSequence } from "./irGenerator.js";
 
-const OPTIMIZATION_PASS_COUNT = 2;
+const OPTIMIZATION_PASS_COUNT = 0;
 
 class IROptimizer {
 	private popSeq: IRSequence;
@@ -9,29 +9,6 @@ class IROptimizer {
 	private resultGv: IRGV;
 
 	constructor(private ir: IR) {}
-
-	// Optimize the pointless push then instant pop sequences
-	// private removePushPop(events: IREvent[]) {
-	// 	const pushSeq = this.ir.sequences.find(seq => seq.name == "push");
-	// 	const popSeq = this.ir.sequences.find(seq => seq.name == "pop");
-
-	// 	const newEvents: IREvent[] = [];
-
-	// 	for (let i = 0; i < events.length - 1; i++) {
-	// 		const currentIsPush = events[i].method == "callSequence" && events[i].args[0].value == pushSeq.id;
-	// 		const nextIsPop = events[i + 1].method == "callSequence" && events[i + 1].args[0].value == popSeq.id;
-
-	// 		if (currentIsPush && nextIsPop) {
-	// 			i++;
-	// 			continue;
-	// 		}
-
-	// 		newEvents.push(events[i]);
-	// 	}
-	// 	newEvents.push(events[events.length - 1]);
-
-	// 	return newEvents;
-	// }
 
 	// Optimize things like A = B, B = A
 	private removeUselessAssignments(events: IREvent[]) {
@@ -192,7 +169,7 @@ class IROptimizer {
 		this.popSeq = this.ir.sequences.find(seq => seq.name == "pop");
 		this.resultGv = this.ir.gvs.find(gv => gv.name == vars.result);
 
-		this.ir.sequences.forEach(seq => (seq.events = this.optimizeEventList(seq.events)));
+		// this.ir.sequences.forEach(seq => (seq.events = this.optimizeEventList(seq.events)));
 		this.ir.conditionalActions.forEach(ca => {
 			ca.then = this.optimizeEventList(ca.then);
 			ca.else = this.optimizeEventList(ca.else);

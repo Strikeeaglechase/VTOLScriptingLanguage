@@ -1,13 +1,9 @@
-fn three() {
-	return 3;
-}
+//EXPECT n=1
+//EXPECT z=66
+let a = 4;
+let b = 3;
+let n = 1;
 
-fn two() {
-	return 2;
+if (a > b) {
+	n = 77;
 }
-
-fn giveFive() {
-	return three() + two();
-}
-
-giveFive();

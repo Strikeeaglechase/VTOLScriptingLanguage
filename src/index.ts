@@ -24,7 +24,6 @@ const posCharStream = preprocessor.preprocess();
 const tokenizer = new Tokenizer(posCharStream);
 const tokenStream = tokenizer.parse();
 fs.writeFileSync("../debug/tokens.txt", tokenizer.debug(tokenStream));
-
 const parser = new Parser(tokenStream);
 const ast = parser.parse();
 fs.writeFileSync("../debug/ast.json", JSON.stringify(ast, null, 2));
@@ -45,14 +44,19 @@ const irCompiler = new IRCompiler(optimizedIR, orgVts);
 const irCompiledVts = irCompiler.compile();
 fs.writeFileSync("../debug/irresult.vts", writeVtsFile(irCompiledVts));
 
-compiledVts.setValue("scenarioID", "output", true);
-fs.writeFileSync("C:/Program Files (x86)/Steam/steamapps/common/VTOL VR/CustomScenarios/Campaigns/chaseFeetPics/output/output.vts", writeVtsFile(compiledVts));
+irCompiledVts.setValue("scenarioID", "output", true);
+irCompiledVts.setValue("campaignOrderIdx", 1, true);
+fs.writeFileSync(
+	"C:/Program Files (x86)/Steam/steamapps/common/VTOL VR/CustomScenarios/Campaigns/chaseFeetPics/output/output.vts",
+	writeVtsFile(irCompiledVts)
+);
 
-const emulator = new Emulator(irCompiledVts, false);
-emulator.execute();
-
-console.log(emulator.getGvByName("n"));
-console.log(`Executed ${emulator.totalExecutedEventCount} events`);
+const emulator = new Emulator(irCompiledVts, true);
+emulator.execute().then(() => {
+	console.log(emulator.getGvByName("n"));
+	console.log(`Executed ${emulator.totalExecutedEventCount} events`);
+	fs.writeFileSync("../debug/emulator.txt", emulator.execLog);
+});
 
 const unitTests = new UnitTester();
-unitTests.runTests();
+// unitTests.runTests();

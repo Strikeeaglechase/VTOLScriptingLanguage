@@ -6,10 +6,12 @@ import {
 	ConditionalKeys,
 	EventKeys,
 	EventTargetKeys,
+	ObjectiveKeys,
 	ParamAttrInfoKeys,
 	ParamInfoKeys,
 	SequenceKeys
 } from "../vtTypes.js";
+import { varIds } from "./compiler.js";
 
 interface NodeInfo {
 	methodName: string;
@@ -338,6 +340,60 @@ class VTSGenerator {
 		eventTarget.setValue("methodName", "Restart");
 
 		return eventTarget;
+	}
+
+	@Track
+	public eventParent(condId: number) {
+		const event = new VTNode<EventKeys>("EVENT");
+		event.setValue("conditional", condId);
+		event.setValue("delay", 0);
+		event.setValue("nodeName", "Event");
+
+		const eventInfo = new VTNode<"eventName">("EventInfo");
+		eventInfo.setValue("eventName", null);
+		event.addChild(eventInfo);
+
+		return event;
+	}
+
+	@Track
+	public stackOverflowExceptionObjective() {
+		const condition = this.conditionalWithCondition(this.gvComp(varIds.stackOverflowFlag, 1, "Equals"));
+
+		const objective = new VTNode<ObjectiveKeys>("Objective")
+			.setValue("objectiveName", "Stack Overflow")
+			.setValue("objectiveInfo", "Stack Overflow")
+			.setValue("objectiveID", this.nextId())
+			.setValue("orderID", 0)
+			.setValue("required", true)
+			.setValue("completionReward", 0)
+			.setValue("waypoint", null)
+			.setValue("autoSetWaypoint", false)
+			.setValue("startMode", "Immediate")
+			.setValue("objectiveType", "Conditional");
+
+		const startEvent = new VTNode("startEvent");
+		startEvent.addChild(new VTNode("EventInfo").setValue("eventName", "Start Event"));
+		objective.addChild(startEvent);
+
+		const failEvent = new VTNode("failEvent");
+		failEvent.addChild(new VTNode("EventInfo").setValue("eventName", "Failed Event"));
+		objective.addChild(failEvent);
+
+		const completeEvent = new VTNode("completeEvent");
+		completeEvent.addChild(new VTNode("EventInfo").setValue("eventName", "Completed Event"));
+		objective.addChild(completeEvent);
+
+		const fields = new VTNode<"successConditional" | "failConditional">("fields");
+		fields.setValue("successConditional", null);
+		fields.setValue("failConditional", condition.getValue("id"));
+		objective.addChild(fields);
+
+		const objectiveParent = this.vts.getNode("OBJECTIVES");
+		objectiveParent.addChild(objective);
+
+		const conditionalsParent = this.vts.getNode("Conditionals");
+		conditionalsParent.addChild(condition);
 	}
 }
 

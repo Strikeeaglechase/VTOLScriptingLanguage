@@ -1,6 +1,6 @@
 import { AST } from "../parser/ast.js";
 import { VTNode } from "../vtsParser.js";
-import { BaseBlockKeys, GVKeys } from "../vtTypes.js";
+import { BaseBlockKeys, CompKeys, GVKeys } from "../vtTypes.js";
 import { Context, GV } from "./context.js";
 import { VTSGenerator } from "./vtsGenerator.js";
 
@@ -26,7 +26,18 @@ const vars = {
 	mathA: "mathA",
 	mathB: "mathB",
 	stackOverflowFlag: "stackOverflowFlag",
+	jumpFlag: "jumpFlag",
 	sp: "sp"
+};
+
+const idStart = 10000;
+const varIds: Record<keyof typeof vars, number> = {
+	mathA: idStart + 0,
+	mathB: idStart + 1,
+	result: idStart + 2,
+	stackOverflowFlag: idStart + 3,
+	jumpFlag: idStart + 4,
+	sp: idStart + 5
 };
 
 const stackSize = 16;
@@ -35,7 +46,7 @@ const stackIdx = (i: number) => `_stack_${i}`;
 
 class Compiler {
 	private vts: VTNode;
-	private _nextId = 10000;
+	private _nextId = idStart + 10;
 
 	private defines: DefinedUnitList[] = [];
 	private localIters: Iterator[] = [];
@@ -46,6 +57,9 @@ class Compiler {
 
 	private pushSeqId = 0;
 	private popSeqId = 0;
+
+	private pushJumpFlagConditional = 0;
+	private popJumpFlagConditional = 0;
 
 	public gen: VTSGenerator;
 
@@ -89,6 +103,15 @@ class Compiler {
 		this.contextStack.push(context);
 	}
 
+	private createAndAddConditional(cond: VTNode<CompKeys>): number {
+		const conditionalsParent = this.vts.getNode("Conditionals");
+		const conditional = this.gen.conditionalWithCondition(cond);
+
+		conditionalsParent.addChild(conditional);
+
+		return conditional.getValue("id");
+	}
+
 	private createStack() {
 		for (let i = 0; i < stackSize; i++) this.makeVar(stackIdx(i));
 
@@ -98,11 +121,22 @@ class Compiler {
 			this.pushSeqId = pushSeq.getValue("id");
 			const pushCondAction = this.gen.conditionalAction("push");
 
+			// Jump flag setup
+			const pushJumpFlagValue = this.nextId();
+			const condActionJumpFlagValue = this.nextId();
+			this.pushJumpFlagConditional = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), pushJumpFlagValue, "Equals"));
+			const condActionJumpFlagConditional = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), condActionJumpFlagValue, "Equals"));
+
+			const setCondJumpFlag = this.gen.gvSet(this.vn(vars.jumpFlag), condActionJumpFlagValue);
+			const setPushJumpFlag = this.gen.gvSet(this.vn(vars.jumpFlag), pushJumpFlagValue);
+
 			// Base case
 			const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn("sp"), 0, "Equals"));
 			const actionParent = new VTNode<"eventName">("ACTIONS");
 			actionParent.setValue("eventName", null);
 			actionParent.addChild(this.gen.gvCopy(this.vn(vars.result), this.vn(stackIdx(0))));
+			actionParent.addChild(setCondJumpFlag);
+
 			const baseBlock = pushCondAction.findChildWithName("BASE_BLOCK");
 			baseBlock.addChild(baseCaseConditional);
 			baseBlock.addChild(actionParent);
@@ -116,6 +150,8 @@ class Compiler {
 				const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
 				elseIfActionParent.setValue("eventName", null);
 				elseIfActionParent.addChild(this.gen.gvCopy(this.vn(vars.result), this.vn(stackIdx(i))));
+				elseIfActionParent.addChild(setCondJumpFlag);
+
 				elseIf.addChild(elseIfConditional);
 				elseIf.addChild(elseIfActionParent);
 
@@ -130,7 +166,13 @@ class Compiler {
 			// Set, then increment
 			const pushBlockEvents = pushSeq.findChildWithName("EventInfo");
 			pushBlockEvents.addChild(this.gen.fireConditional(pushCondAction.getValue("id")));
-			pushBlockEvents.addChild(this.gen.gvIncDec(this.vn("sp"), 1, "IncrementValue"));
+
+			// Wait for conditional to finish, so put increment in separate event
+			const pushBlockSecondEventsParent = this.gen.eventParent(condActionJumpFlagConditional);
+			pushSeq.addChild(pushBlockSecondEventsParent);
+			const pushBlockSecondEvents = pushBlockSecondEventsParent.getNode("EventInfo");
+			pushBlockSecondEvents.addChild(this.gen.gvIncDec(this.vn("sp"), 1, "IncrementValue"));
+			pushBlockSecondEvents.addChild(setPushJumpFlag);
 		}
 
 		// = Pop setup =
@@ -139,11 +181,22 @@ class Compiler {
 			this.popSeqId = popSeq.getValue("id");
 			const popCondAction = this.gen.conditionalAction("pop");
 
+			// Jump flag setup
+			const popJumpFlagValue = this.nextId();
+			const condActionJumpFlagValue = this.nextId();
+			this.popJumpFlagConditional = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), popJumpFlagValue, "Equals"));
+			const condActionJumpFlagConditional = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), condActionJumpFlagValue, "Equals"));
+
+			const setCondJumpFlag = this.gen.gvSet(this.vn(vars.jumpFlag), condActionJumpFlagValue);
+			const setPopJumpFlag = this.gen.gvSet(this.vn(vars.jumpFlag), popJumpFlagValue);
+
 			// Base case
 			const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn("sp"), 0, "Equals"));
 			const actionParent = new VTNode<"eventName">("ACTIONS");
 			actionParent.setValue("eventName", null);
 			actionParent.addChild(this.gen.gvCopy(this.vn(stackIdx(0)), this.vn(vars.result)));
+			actionParent.addChild(setCondJumpFlag);
+
 			const baseBlock = popCondAction.findChildWithName("BASE_BLOCK");
 			baseBlock.addChild(baseCaseConditional);
 			baseBlock.addChild(actionParent);
@@ -157,6 +210,8 @@ class Compiler {
 				const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
 				elseIfActionParent.setValue("eventName", null);
 				elseIfActionParent.addChild(this.gen.gvCopy(this.vn(stackIdx(i)), this.vn(vars.result)));
+				elseIfActionParent.addChild(setCondJumpFlag);
+
 				elseIf.addChild(elseIfConditional);
 				elseIf.addChild(elseIfActionParent);
 
@@ -167,15 +222,31 @@ class Compiler {
 			const popBlockEvents = popSeq.findChildWithName("EventInfo");
 			popBlockEvents.addChild(this.gen.gvIncDec(this.vn("sp"), 1, "DecrementValue"));
 			popBlockEvents.addChild(this.gen.fireConditional(popCondAction.getValue("id")));
+
+			// Wait for conditional to finish then set the ret flag
+			const popBlockSecondEventsParent = this.gen.eventParent(condActionJumpFlagConditional);
+			popSeq.addChild(popBlockSecondEventsParent);
+			const popBlockSecondEvents = popBlockSecondEventsParent.getNode("EventInfo");
+			popBlockSecondEvents.addChild(setPopJumpFlag);
 		}
+	}
+
+	private splitCurrentContext(conditionalId: number) {
+		const newEvent = this.gen.eventParent(conditionalId);
+		this.currentVTContext.addChild(newEvent);
+		this.add(this.gen.gvSet(this.vn(vars.jumpFlag), 0));
 	}
 
 	private push() {
 		this.add(this.gen.callSequence(this.pushSeqId));
+		this.splitCurrentContext(this.pushJumpFlagConditional);
+		// this.add(this.gen.gvSet(this.vn(vars.jumpFlag), 0));
 	}
 
 	private pop() {
 		this.add(this.gen.callSequence(this.popSeqId));
+		this.splitCurrentContext(this.popJumpFlagConditional);
+		// this.add(this.gen.gvSet(this.vn(vars.jumpFlag), 0));
 	}
 
 	public compile() {
@@ -184,11 +255,14 @@ class Compiler {
 		this.blockContextStack.push(entrypointSequence);
 
 		for (const key in vars) {
-			this.makeVar(vars[key]);
+			this.makeVar(vars[key], varIds[key]);
 		}
 		this.createStack();
+		this.gen.stackOverflowExceptionObjective();
 
 		this.ast.body.forEach(child => this.compileAst(child));
+
+		this.add(this.gen.gvSet(this.vn(vars.jumpFlag), -1)); // jumpFlag=-1 = halt
 
 		return this.vts;
 	}
@@ -266,6 +340,8 @@ class Compiler {
 		this.add(this.gen.gvSet(this.vn(vars.result), ast.value));
 		this.push();
 	}
+
+	// 1 + 2
 
 	private handleBinaryOperation(ast: AST.BinaryOperation) {
 		this.compileAst(ast.left);
@@ -431,13 +507,13 @@ class Compiler {
 		this.defines.push(def);
 	}
 
-	private makeVar(name: string): GV {
+	private makeVar(name: string, forcedId?: number): GV {
 		// if(th)
 		if (this.context.hasGV(name)) {
 			throw new Error(`Variable "${name}" already exists`);
 		}
 
-		const gvVar = this.context.addGV(name);
+		const gvVar = this.context.addGV(name, forcedId);
 
 		const gv = new VTNode<GVKeys>("gv");
 		// const dataStr = `${id};${name};;0;`;
@@ -456,4 +532,4 @@ class Compiler {
 	}
 }
 
-export { Compiler, vars };
+export { Compiler, vars, varIds };

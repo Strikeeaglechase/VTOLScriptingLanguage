@@ -25,6 +25,8 @@ class VTNode<T extends string = string> {
 			throw new Error(`Attempt to mutate existing value ${key}`);
 		}
 		this.values[key] = value;
+
+		return this;
 	}
 
 	public getNode<T extends string>(name: string): VTNode<T> {

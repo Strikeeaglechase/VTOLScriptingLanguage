@@ -34,8 +34,8 @@ class Context {
 		return this.getGV(name).id;
 	}
 
-	public addGV(name: string) {
-		this.gvs.push({ name: name, id: this.idGen() });
+	public addGV(name: string, forcedId?: number) {
+		this.gvs.push({ name: name, id: forcedId ?? this.idGen() });
 		return this.getGV(name);
 	}
 }
