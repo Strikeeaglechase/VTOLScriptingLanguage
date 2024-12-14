@@ -64,4 +64,4 @@ emulator.execute().then(() => {
 });
 
 const unitTests = new UnitTester();
-// unitTests.runTests();
+unitTests.runTests();
