@@ -19,8 +19,14 @@ class UnitTester {
 	private totalLinesOpt = 0;
 
 	private execTime = 0;
+	private compileTime = 0;
 
 	constructor() {
+		if (!fs.existsSync("../unitTests")) {
+			console.log(`Unit tests folder does not exist`);
+			return;
+		}
+
 		fs.readdirSync("../unitTests")
 			.filter(f => f.endsWith(".txt") || f.endsWith(".vtsl"))
 			.forEach(f => this.testFiles.push(f));
@@ -42,12 +48,10 @@ class UnitTester {
 		if (this.totalPassed == this.totalTests) rStr = chalk.green(rStr);
 		else rStr = chalk.red(rStr);
 
-		const compileTime = end - start - this.execTime;
-
 		console.log(
 			rStr +
 				chalk.blue(
-					` tests passed in ${end - start}ms (${compileTime}ms compile, ${this.execTime}ms execute). Unoptimized instructions: ${
+					` tests passed in ${end - start}ms (${this.compileTime}ms compile, ${this.execTime}ms execute). Unoptimized instructions: ${
 						this.totalLinesUnopt
 					}, optimized instructions: ${this.totalLinesOpt}`
 				)
@@ -66,6 +70,7 @@ class UnitTester {
 		let resultVtsUnopt: VTNode;
 		let resultVtsOpt: VTNode;
 		try {
+			const compileStart = Date.now();
 			const preprocessor = new Preprocessor(file);
 			const posCharStream = preprocessor.preprocess();
 			const tokenizer = new Tokenizer(posCharStream);
@@ -80,11 +85,17 @@ class UnitTester {
 			const optimizedIR = irOptimizer.optimize();
 			const irCompiler = new IRCompiler(optimizedIR, sourceVtsNode);
 			resultVtsOpt = irCompiler.compile();
+			const compileEnd = Date.now();
+			this.compileTime += compileEnd - compileStart;
 		} catch (e) {
 			console.log(chalk.red(`Test ${testFile} failed to compile because ${e.message}`));
 			this.totalTests += expected.length;
 			return;
 		}
+
+		const timeout = setTimeout(() => {
+			console.log(`Test ${testFile} is taking excessively long to complete`);
+		}, 1000 * 60);
 
 		const execStart = Date.now();
 		const emulatorUnopt = new Emulator(resultVtsUnopt);
@@ -92,6 +103,7 @@ class UnitTester {
 		const emulatorOpt = new Emulator(resultVtsOpt);
 		const errOpt = await emulatorOpt.execute().catch((e: Error) => e);
 		const execEnd = Date.now();
+		clearTimeout(timeout);
 		this.execTime += execEnd - execStart;
 
 		if (errUnopt) throw errUnopt;

@@ -17,6 +17,8 @@ if (fs.existsSync("./source/code.vtsl")) sourceCodePath = "./source/code.vtsl";
 else sourceCodePath = "../source/code.vtsl";
 
 const source = fs.readFileSync(sourceCodePath, "utf8");
+const debugSymbolsMatch = source.match(/\/\/ ?Debug:(.+)/);
+const debugSymbols = debugSymbolsMatch ? debugSymbolsMatch[1].split(",").map(s => s.trim()) : [];
 
 const preprocessor = new Preprocessor(source);
 const posCharStream = preprocessor.preprocess();
@@ -51,9 +53,12 @@ fs.writeFileSync(
 	writeVtsFile(irCompiledVts)
 );
 
-const emulator = new Emulator(irCompiledVts, true);
+const emulateLog = fs.createWriteStream("../debug/elog.txt");
+const emulator = new Emulator(irCompiledVts, true, emulateLog);
 emulator.execute().then(() => {
-	console.log(emulator.getGvByName("n"));
+	debugSymbols.forEach(s => {
+		console.log(emulator.getGvByName(s));
+	});
 	console.log(`Executed ${emulator.totalExecutedEventCount} events`);
 	fs.writeFileSync("../debug/emulator.txt", emulator.execLog);
 });

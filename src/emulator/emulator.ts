@@ -1,3 +1,5 @@
+import fs from "fs";
+
 import { vars } from "../compiler/compiler.js";
 import { VTNode } from "../vtsParser.js";
 import { CompKeys, ConditionalActionKeys, ConditionalKeys, EventTargetKeys, ParamInfoKeys, SequenceKeys } from "../vtTypes.js";
@@ -9,12 +11,14 @@ interface GV {
 	value: number;
 }
 
+const useAsync = false;
+
 class Emulator {
 	private gvs: GV[] = [];
 	public totalExecutedEventCount = 0;
 	public execLog: string = "";
 
-	constructor(private vts: VTNode, private debug = false) {
+	constructor(private vts: VTNode, private debug = false, private logWriter: fs.WriteStream = null) {
 		this.gvs = this.vts.getAllChildrenWithName("gv").map(gv => {
 			const [id, name, _, value] = gv.getValue("data") as [number, string, null, number];
 
@@ -28,6 +32,9 @@ class Emulator {
 
 		return new Promise<void>(res => {
 			const check = () => {
+				// this.log(`Waiting for ${condId} to resolve`);
+				const cVals = condition.children[0].values;
+				this.log(`Waiting for ${condId} to resolve: "${cVals.gv} ${cVals.comparison} ${cVals.c_value}"`);
 				if (this.evaluateCondition(condition)) {
 					res();
 				} else {
@@ -38,15 +45,26 @@ class Emulator {
 		});
 	}
 
+	private syncWaitForCondition(condId: number) {
+		const conditionals = this.vts.getNode("Conditionals").getAllChildrenWithName("CONDITIONAL");
+		const condition = conditionals.find(c => c.getValue("id") === condId);
+
+		const result = this.evaluateCondition(condition);
+		if (!result) {
+			throw new Error(`Sync condition ${condId} failed`);
+		}
+	}
+
 	private async executeSequence(sequence: VTNode<SequenceKeys>, depth: number) {
 		const name = sequence.getValue("sequenceName");
-		if (this.debug) this.log("\t".repeat(depth) + `Executing sequence: ${name}`);
+		this.log("\t".repeat(depth) + `Executing sequence: ${name}`);
 		const events = sequence.getAllChildrenWithName("EVENT");
 
 		for (const event of events) {
 			const eventStartCondition = event.getValue("conditional") as number;
 			if (eventStartCondition) {
-				await this.waitForCondition(eventStartCondition);
+				if (useAsync) await this.waitForCondition(eventStartCondition);
+				else this.syncWaitForCondition(eventStartCondition);
 
 				const conditionals = this.vts.getNode("Conditionals").getAllChildrenWithName("CONDITIONAL");
 				const jumpFlag = conditionals
@@ -56,11 +74,12 @@ class Emulator {
 
 				let result = "\t".repeat(depth + 1);
 				result += `<WAITED> ${jumpFlag}`;
-				if (this.debug) this.log(result);
+				this.log(result);
 			}
 
 			const eventTargets = event.getAllChildrenWithName("EventTarget");
-			await this.fireEvents(eventTargets, depth + 1);
+			if (useAsync) await this.fireEvents(eventTargets, depth + 1);
+			else this.fireEventsSync(eventTargets, depth + 1);
 		}
 	}
 
@@ -102,6 +121,12 @@ class Emulator {
 		for (const event of events) {
 			this.fireEvent(event, depth);
 			await delay(0); // Simulate waitForNextFrame
+		}
+	}
+
+	private fireEventsSync(events: VTNode<EventTargetKeys>[], depth: number) {
+		for (const event of events) {
+			this.fireEvent(event, depth);
 		}
 	}
 
@@ -242,14 +267,16 @@ class Emulator {
 		}
 	}
 
-	private handleConditionalAction(ca: VTNode<ConditionalActionKeys>, depth: number) {
+	private async handleConditionalAction(ca: VTNode<ConditionalActionKeys>, depth: number) {
+		if (useAsync) await delay(0); // Simulate waitForNextFrame
 		const bb = ca.getNode("BASE_BLOCK");
 		const baseCondition = bb.getNode("CONDITIONAL");
 		const baseIsTrue = this.evaluateCondition(baseCondition);
 		if (baseIsTrue) {
 			const baseAction = bb.getNode("ACTIONS");
 			const events = baseAction.getAllChildrenWithName("EventTarget");
-			this.fireEvents(events, depth);
+			if (useAsync) await this.fireEvents(events, depth);
+			else this.fireEventsSync(events, depth);
 		} else {
 			const elseIfBlocks = bb.getAllChildrenWithName("ELSE_IF");
 			for (const elseIfBlock of elseIfBlocks) {
@@ -258,7 +285,8 @@ class Emulator {
 				if (isTrue) {
 					const actions = elseIfBlock.getNode("ACTIONS");
 					const events = actions.getAllChildrenWithName("EventTarget");
-					this.fireEvents(events, depth);
+					if (useAsync) await this.fireEvents(events, depth);
+					else this.fireEventsSync(events, depth);
 					return;
 				}
 			}
@@ -267,7 +295,8 @@ class Emulator {
 			if (elseBlock) {
 				// const actions = elseBlock.getNode("ACTIONS");
 				const events = elseBlock.getAllChildrenWithName("EventTarget");
-				this.fireEvents(events, depth);
+				if (useAsync) await this.fireEvents(events, depth);
+				else this.fireEventsSync(events, depth);
 			}
 		}
 	}
@@ -290,7 +319,7 @@ class Emulator {
 			const check = () => {
 				const jumpFlag = this.getGvByName(vars.jumpFlag);
 				if (jumpFlag.value == -1) {
-					if (this.debug) this.log(`Jump flag set to -1, halting`);
+					this.log(`Jump flag set to -1, halting`);
 					res();
 				} else {
 					setTimeout(check, 10);
@@ -300,10 +329,20 @@ class Emulator {
 		});
 	}
 
+	private waitForHaltSync() {
+		const jumpFlag = this.getGvByName(vars.jumpFlag);
+		if (jumpFlag.value != -1) {
+			throw new Error("Sync jump flag was not set to -1");
+		}
+
+		this.log(`Jump flag set to -1, halting`);
+	}
+
 	public async execute() {
 		const startImmediatelySequences = this.vts.getAllChildrenWithName<SequenceKeys>("SEQUENCE").filter(s => s.getValue("startImmediately"));
 		startImmediatelySequences.forEach(sequence => this.executeSequence(sequence, 0));
-		await this.waitForHalt();
+		if (useAsync) await this.waitForHalt();
+		else this.waitForHaltSync();
 	}
 
 	private checkStack() {
@@ -322,7 +361,12 @@ class Emulator {
 	}
 
 	private log(str: string) {
+		if (!this.debug) return;
 		this.execLog += str + "\n";
+
+		if (this.logWriter) {
+			this.logWriter.write(str + "\n");
+		}
 	}
 }
 

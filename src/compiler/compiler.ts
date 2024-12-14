@@ -53,7 +53,7 @@ class Compiler {
 	private blockContextStack: VTNode[] = [];
 	private contextStack: Context[] = [];
 	private refVars: RefVar[] = [];
-	private functions: { name: string; id: number }[] = [];
+	private functions: { name: string; id: number; jumpFlagId: number }[] = [];
 
 	private pushSeqId = 0;
 	private popSeqId = 0;
@@ -110,6 +110,13 @@ class Compiler {
 		conditionalsParent.addChild(conditional);
 
 		return conditional.getValue("id");
+	}
+
+	private getJumpFlagConditional() {
+		const jumpFlagValue = this.nextId();
+		const condId = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), jumpFlagValue, "Equals"));
+
+		return { jumpFlagValue, condId };
 	}
 
 	private createStack() {
@@ -341,8 +348,6 @@ class Compiler {
 		this.push();
 	}
 
-	// 1 + 2
-
 	private handleBinaryOperation(ast: AST.BinaryOperation) {
 		this.compileAst(ast.left);
 		this.compileAst(ast.right);
@@ -403,24 +408,43 @@ class Compiler {
 	}
 
 	private handleIf(ast: AST.IfStatement) {
-		const thenBlock = this.gen.sequence("ifThen");
-		this.withContext(thenBlock, () => ast.then.forEach(child => this.compileAst(child)));
-		const thenId = thenBlock.getValue("id") as number;
-		let elseId = 0;
+		const ifDoneJumpId = this.nextId();
+		const doneConditional = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), ifDoneJumpId, "Equals"));
 
-		if (ast.else) {
-			const elseBlock = this.gen.sequence("ifElse");
-			this.withContext(elseBlock, () => ast.else.forEach(child => this.compileAst(child)));
-			elseId = elseBlock.getValue("id");
-		}
+		const thenBlock = this.gen.sequence("ifThen");
+		this.withContext(thenBlock, () => {
+			ast.then.forEach(child => this.compileAst(child));
+			this.add(this.gen.gvSet(this.vn(vars.jumpFlag), ifDoneJumpId));
+		});
+
+		const thenId = thenBlock.getValue("id") as number;
+		// let elseId = 0;
+		// if (ast.else) {
+		// 	const elseBlock = this.gen.sequence("ifElse");
+		// 	this.withContext(elseBlock, () => {
+		// 		ast.else.forEach(child => this.compileAst(child));
+		// 		this.add(this.gen.gvSet(this.vn(vars.jumpFlag), ifDoneJumpId));
+		// 	});
+		// 	elseId = elseBlock.getValue("id");
+		// }
+
+		const elseBlock = this.gen.sequence("ifElse");
+		this.withContext(elseBlock, () => {
+			ast.else?.forEach(child => this.compileAst(child));
+			this.add(this.gen.gvSet(this.vn(vars.jumpFlag), ifDoneJumpId));
+		});
+
+		const elseId = elseBlock.getValue("id") as number;
 
 		this.compileAst(ast.condition);
 		this.pop();
 		const cond = this.gen.gvNotZero(this.vn(vars.result));
 		const thenAction = this.gen.callSequence(thenId);
-		const elseAction = elseId ? this.gen.callSequence(elseId) : null;
+		const elseAction = this.gen.callSequence(elseId);
+		// const elseAction = elseId ? this.gen.callSequence(elseId) : null;
 
 		this.add(this.gen.simpleConditional("ifCond", cond, thenAction, elseAction));
+		this.splitCurrentContext(doneConditional);
 	}
 
 	private handleReturn(ast: AST.Return) {
@@ -430,6 +454,9 @@ class Compiler {
 	}
 
 	private handleWhile(ast: AST.While) {
+		const whileDoneId = this.nextId();
+		const whileDoneCond = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), whileDoneId, "Equals"));
+
 		const whileCondSeq = this.gen.sequence("whileCond");
 		const whileBodySeq = this.gen.sequence("whileBody");
 
@@ -438,14 +465,17 @@ class Compiler {
 			this.pop();
 			const cond = this.gen.gvNotZero(this.vn(vars.result));
 			const action = this.gen.callSequence(whileBodySeq.getValue("id"));
-			this.add(this.gen.simpleConditional("whileCondCheck", cond, action));
+			const elseSetDone = this.gen.gvSet(this.vn(vars.jumpFlag), whileDoneId);
+			this.add(this.gen.simpleConditional("whileCondCheck", cond, action, elseSetDone));
 		});
+
 		this.withContext(whileBodySeq, () => {
 			ast.body.forEach(child => this.compileAst(child));
 			this.add(this.gen.callSequence(whileCondSeq.getValue("id")));
 		});
 
 		this.add(this.gen.callSequence(whileCondSeq.getValue("id")));
+		this.splitCurrentContext(whileDoneCond);
 	}
 
 	private handleForEach(ast: AST.ForEach) {
@@ -462,7 +492,8 @@ class Compiler {
 
 	private handleFunctionDeclaration(ast: AST.FunctionDeclaration) {
 		const fnSeq = this.gen.sequence(ast.name.value);
-		this.functions.push({ name: ast.name.value, id: fnSeq.getValue("id") as number });
+		const { jumpFlagValue, condId } = this.getJumpFlagConditional();
+		this.functions.push({ name: ast.name.value, id: fnSeq.getValue("id") as number, jumpFlagId: condId });
 
 		const fnCtx = new Context(this.context, this.nextId.bind(this));
 		this.contextStack.push(fnCtx);
@@ -474,6 +505,8 @@ class Compiler {
 			});
 
 			ast.body.forEach(child => this.compileAst(child));
+
+			this.add(this.gen.gvSet(this.vn(vars.jumpFlag), jumpFlagValue));
 		});
 		this.contextStack.pop();
 	}
@@ -484,6 +517,7 @@ class Compiler {
 
 		ast.arguments.forEach(arg => this.compileAst(arg));
 		this.add(this.gen.callSequence(fn.id));
+		this.splitCurrentContext(fn.jumpFlagId);
 	}
 
 	private handleUnitDefine(ast: AST.UnitDefine) {

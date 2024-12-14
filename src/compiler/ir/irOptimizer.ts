@@ -1,7 +1,7 @@
 import { vars } from "../compiler.js";
 import { IR, IREvent, IRGV, IRSequence } from "./irGenerator.js";
 
-const OPTIMIZATION_PASS_COUNT = 0;
+const OPTIMIZATION_PASS_COUNT = 1;
 
 class IROptimizer {
 	private popSeq: IRSequence;
