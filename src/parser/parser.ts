@@ -167,8 +167,8 @@ class Parser {
 				return this.handleUnitDefine();
 			case "forEach":
 				return this.handleForEach();
-			// case "for":
-			// 	return this.handleFor();
+			case "for":
+				return this.handleFor();
 			case "while":
 				return this.handleWhile();
 			case "fn":
@@ -459,6 +459,33 @@ class Parser {
 		};
 
 		return forEachStatement;
+	}
+
+	private handleFor() {
+		const forTok = this.tokens.next();
+		this.consumeOrThrow("(");
+		const init = this.parseAst();
+		this.maybeConsume(";");
+		const condition = this.parseAst();
+		this.maybeConsume(";");
+		const inc = this.parseAst();
+		this.consumeOrThrow(")");
+		const body = this.parseOptionallyBracketedBody();
+
+		const forStatement: AST.For = {
+			type: AST.Type.For,
+			init: init,
+			condition: condition,
+			iteration: inc,
+			body: body,
+
+			line: forTok.line,
+			column: forTok.column,
+
+			...getLastPosNamed(body)
+		};
+
+		return forStatement;
 	}
 
 	private handleWhile() {

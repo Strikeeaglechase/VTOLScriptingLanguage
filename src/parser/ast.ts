@@ -19,6 +19,7 @@ export namespace AST {
 		LiteralNumber = "number",
 		Semi = "semi",
 		ForEach = "forEach",
+		For = "for",
 		While = "while",
 		Return = "return"
 	}
@@ -136,6 +137,16 @@ export namespace AST {
 		body: AnyAST[];
 	}
 
+	export interface For extends Node {
+		type: Type.For;
+
+		init: AnyAST;
+		condition: AnyAST;
+		iteration: AnyAST;
+
+		body: AnyAST[];
+	}
+
 	export interface While extends Node {
 		type: Type.While;
 
@@ -174,6 +185,7 @@ export namespace AST {
 		| FunctionCall
 		| IfStatement
 		| ForEach
+		| For
 		| While
 		| Return
 		| LiteralNumber

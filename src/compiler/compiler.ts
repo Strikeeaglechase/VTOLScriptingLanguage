@@ -288,6 +288,9 @@ class Compiler {
 			case AST.Type.ForEach:
 				this.handleForEach(ast);
 				break;
+			case AST.Type.For:
+				this.handleFor(ast);
+				break;
 			case AST.Type.VariableDeclaration:
 				this.handleVarDeclaration(ast);
 				break;
@@ -488,6 +491,33 @@ class Compiler {
 		ast.body.forEach(child => this.compileAst(child));
 
 		this.localIters = this.localIters.filter(it => it != newIter);
+	}
+
+	private handleFor(ast: AST.For) {
+		const forDoneId = this.nextId();
+		const forDoneCond = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), forDoneId, "Equals"));
+
+		const forCondSeq = this.gen.sequence("forCond");
+		const forBodySeq = this.gen.sequence("forBody");
+		this.compileAst(ast.init);
+
+		this.withContext(forCondSeq, () => {
+			this.compileAst(ast.condition);
+			this.pop();
+			const cond = this.gen.gvNotZero(this.vn(vars.result));
+			const action = this.gen.callSequence(forBodySeq.getValue("id"));
+			const elseSetDone = this.gen.gvSet(this.vn(vars.jumpFlag), forDoneId);
+			this.add(this.gen.simpleConditional("forCondCheck", cond, action, elseSetDone));
+		});
+
+		this.withContext(forBodySeq, () => {
+			ast.body.forEach(child => this.compileAst(child));
+			this.compileAst(ast.iteration);
+			this.add(this.gen.callSequence(forCondSeq.getValue("id")));
+		});
+
+		this.add(this.gen.callSequence(forCondSeq.getValue("id")));
+		this.splitCurrentContext(forDoneCond);
 	}
 
 	private handleFunctionDeclaration(ast: AST.FunctionDeclaration) {

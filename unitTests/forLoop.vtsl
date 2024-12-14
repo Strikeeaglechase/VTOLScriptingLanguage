@@ -1,0 +1,13 @@
+// EXPECT t=45
+// EXPECT a=15
+let t = 0;
+let n = 10;
+let a = 0;
+
+for(let i = 0; i < n; i += 1) {
+	t += i;
+
+	if (i == 5) a = t;
+}
+
+// Debug: t
