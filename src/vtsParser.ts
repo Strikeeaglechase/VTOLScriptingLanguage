@@ -98,7 +98,7 @@ class VTNode<T extends string = string> {
 }
 
 function parseVTValue(value: string): VTValue {
-	if (value.length == 0) return null;
+	if (value.length == 0) return "";
 	if (value == "null") return null;
 	if (value == "True") return true;
 	if (value == "False") return false;
