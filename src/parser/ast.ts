@@ -77,7 +77,8 @@ export namespace AST {
 	export interface UnitReference extends Node {
 		type: Type.UnitReference;
 		name: Token;
-		expression: IndexAccess;
+		unitGroup: Token;
+		indexer: AnyAST;
 	}
 
 	export interface VariableReference extends Node {
@@ -91,18 +92,20 @@ export namespace AST {
 		expression: AnyAST;
 	}
 
-	export interface IndexAccess extends Node {
-		type: Type.IndexAccess;
+	// export interface IndexAccess extends Node {
+	// 	type: Type.IndexAccess;
 
-		target: Token;
-		index: AnyAST;
-	}
+	// 	target: Token;
+	// 	index: AnyAST;
+	// }
 
 	export interface PropertyAccess extends Node {
 		type: Type.PropertyAccess;
 
 		target: Token;
 		property: Token;
+
+		indexer: AnyAST | null;
 	}
 
 	export interface MethodCall extends Node {
@@ -111,6 +114,8 @@ export namespace AST {
 		target: Token;
 		method: Token;
 		arguments: AnyAST[];
+
+		indexer: AnyAST | null;
 	}
 
 	export interface FunctionCall extends Node {
@@ -179,7 +184,7 @@ export namespace AST {
 		| VariableReference
 		| VariableAssignment
 		| UnitReference
-		| IndexAccess
+		// | IndexAccess
 		| PropertyAccess
 		| MethodCall
 		| FunctionCall

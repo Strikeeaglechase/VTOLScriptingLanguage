@@ -395,6 +395,18 @@ class VTSGenerator {
 		const conditionalsParent = this.vts.getNode("Conditionals");
 		conditionalsParent.addChild(condition);
 	}
+
+	@Track
+	public unitMethod(method: string, unitId: number) {
+		const eventTarget = new VTNode<EventTargetKeys | "altTargetIdx">("EventTarget");
+		eventTarget.setValue("targetType", "Unit");
+		eventTarget.setValue("targetID", unitId);
+		eventTarget.setValue("eventName", method);
+		eventTarget.setValue("methodName", method);
+		eventTarget.setValue("altTargetIdx", -2);
+
+		return eventTarget;
+	}
 }
 
 export { VTSGenerator, NodeInfo };

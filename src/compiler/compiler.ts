@@ -4,10 +4,18 @@ import { BaseBlockKeys, CompKeys, GVKeys } from "../vtTypes.js";
 import { Context, GV } from "./context.js";
 import { VTSGenerator } from "./vtsGenerator.js";
 
+interface UnitListMethod {
+	actionMethod: string;
+	actionId: number;
+	jumpFlagCondId: number;
+}
+
 interface DefinedUnitList {
 	name: string;
 	type: string;
 	ids: number[];
+
+	createdActions: UnitListMethod[];
 }
 
 interface Iterator {
@@ -285,6 +293,9 @@ class Compiler {
 			case AST.Type.FunctionCall:
 				this.handleFunctionCall(ast);
 				break;
+			case AST.Type.MethodCall:
+				this.handleMethodCall(ast);
+				break;
 			case AST.Type.ForEach:
 				this.handleForEach(ast);
 				break;
@@ -520,6 +531,79 @@ class Compiler {
 		this.splitCurrentContext(forDoneCond);
 	}
 
+	private createMethodCallAction(unitList: DefinedUnitList, method: string) {
+		// const methodSeq = this.gen.sequence(method);
+		const methodCondAction = this.gen.conditionalAction(method);
+
+		const jumpFlagValue = this.nextId();
+		const condActionJumpFlagValue = this.nextId();
+		const condId = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), condActionJumpFlagValue, "Equals"));
+		const condActJumpFlagConditional = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), jumpFlagValue, "Equals"));
+
+		const setJumpFlag = this.gen.gvSet(this.vn(vars.jumpFlag), jumpFlagValue);
+		const setCondJumpFlag = this.gen.gvSet(this.vn(vars.jumpFlag), condActionJumpFlagValue);
+
+		const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.result), -1, "Equals"));
+		const actionParent = new VTNode<"eventName">("ACTIONS");
+		actionParent.setValue("eventName", null);
+		unitList.ids.forEach(id => actionParent.addChild(this.gen.unitMethod(method, id)));
+		actionParent.addChild(setCondJumpFlag);
+
+		const baseBlock = methodCondAction.findChildWithName("BASE_BLOCK");
+		baseBlock.addChild(baseCaseConditional);
+		baseBlock.addChild(actionParent);
+
+		unitList.ids.forEach((id, idx) => {
+			const elseIf = new VTNode<BaseBlockKeys>("ELSE_IF");
+			elseIf.setValue("{blockName}", `[${id}]${method}`);
+			elseIf.setValue("blockId", this.nextId());
+			const elseIfConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.result), idx, "Equals"));
+
+			const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
+			elseIfActionParent.setValue("eventName", null);
+			elseIfActionParent.addChild(this.gen.unitMethod(method, id));
+			elseIfActionParent.addChild(setCondJumpFlag);
+
+			elseIf.addChild(elseIfConditional);
+			elseIf.addChild(elseIfActionParent);
+
+			baseBlock.addChild(elseIf);
+		});
+
+		const elseBlock = new VTNode<"eventName">("ELSE_ACTIONS");
+		elseBlock.setValue("eventName", null);
+		elseBlock.addChild(this.gen.gvSet(this.vn(vars.stackOverflowFlag), 1));
+		baseBlock.addChild(elseBlock);
+
+		// const methodBlockSecondEventsParent = this.gen.eventParent(condActJumpFlagConditional);
+		// methodSeq.addChild(methodBlockSecondEventsParent);
+		// const methodBlockSecondEvents = methodBlockSecondEventsParent.getNode("EventInfo");
+		// methodBlockSecondEvents.addChild(setJumpFlag);
+
+		const ulMethod: UnitListMethod = { actionMethod: method, actionId: methodCondAction.getValue("id"), jumpFlagCondId: condId };
+		unitList.createdActions.push(ulMethod);
+
+		return ulMethod;
+	}
+
+	private handleMethodCall(ast: AST.MethodCall) {
+		const unitList = this.defines.find(d => d.name == ast.target.value);
+		if (!unitList) throw new Error(`Unit list "${ast.target.value}" not found`);
+
+		let condActionId = unitList.createdActions.find(a => a.actionMethod == ast.method.value);
+		if (!condActionId) condActionId = this.createMethodCallAction(unitList, ast.method.value);
+
+		if (ast.indexer) {
+			this.compileAst(ast.indexer);
+			this.pop();
+		} else {
+			this.add(this.gen.gvSet(this.vn(vars.result), -1));
+		}
+
+		this.add(this.gen.fireConditional(condActionId.actionId));
+		this.splitCurrentContext(condActionId.jumpFlagCondId);
+	}
+
 	private handleFunctionDeclaration(ast: AST.FunctionDeclaration) {
 		const fnSeq = this.gen.sequence(ast.name.value);
 		const { jumpFlagValue, condId } = this.getJumpFlagConditional();
@@ -554,7 +638,8 @@ class Compiler {
 		const def: DefinedUnitList = {
 			name: ast.name.value,
 			type: ast.unitType.value,
-			ids: []
+			ids: [],
+			createdActions: []
 		};
 
 		ast.idRanges.forEach(idRange => {

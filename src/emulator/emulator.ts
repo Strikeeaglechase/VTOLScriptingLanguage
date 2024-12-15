@@ -112,6 +112,11 @@ class Emulator {
 			case "Event_Sequences":
 				this.handleEventSequenceEvent(event, depth);
 				break;
+			case "Unit":
+				this.handleUnitEvent(event, depth);
+				break;
+			default:
+				throw new Error(`Unhandled event target type: ${event.getValue("targetType")}`);
 		}
 
 		this.checkStack();
@@ -312,6 +317,10 @@ class Emulator {
 			default:
 				throw new Error(`Unhandled event sequence method name: ${event.getValue("methodName")}`);
 		}
+	}
+
+	private handleUnitEvent(event: VTNode<EventTargetKeys>, depth: number) {
+		console.log(`Unit ${event.getValue("targetID")}.${event.getValue("methodName")}()`);
 	}
 
 	private waitForHalt() {

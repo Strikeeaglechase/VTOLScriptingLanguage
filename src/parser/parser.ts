@@ -245,9 +245,9 @@ class Parser {
 	private handleIdentifier() {
 		const identifier = this.tokens.next();
 		const next = this.tokens.peek();
+
 		if (next.value == "(") return this.handleFunctionCall(identifier);
-		if (next.value == ".") return this.handlePropertyAccess(identifier);
-		if (next.value == "[") return this.handleIndexAccess(identifier);
+		if (next.value == "." || next.value == "[") return this.handlePropertyAccess(identifier);
 		if (next.value == "=") return this.handleVariableAssignment(identifier);
 
 		const variableReference: AST.VariableReference = {
@@ -294,6 +294,14 @@ class Parser {
 	}
 
 	private handlePropertyAccess(identifier: Token) {
+		const next = this.tokens.peek();
+		let indexer: AST.AnyAST | null = null;
+		if (next.value == "[") {
+			this.consumeOrThrow("[");
+			indexer = this.parseAst();
+			this.consumeOrThrow("]");
+		}
+
 		this.consumeOrThrow(".");
 		const property = this.tokens.next();
 
@@ -306,6 +314,7 @@ class Parser {
 				target: identifier,
 				method: property,
 				arguments: args,
+				indexer: indexer,
 
 				line: identifier.line,
 				column: identifier.column,
@@ -320,6 +329,7 @@ class Parser {
 			type: AST.Type.PropertyAccess,
 			target: identifier,
 			property: property,
+			indexer: indexer,
 
 			line: identifier.line,
 			column: identifier.column,
@@ -328,24 +338,6 @@ class Parser {
 		};
 
 		return propertyAccess;
-	}
-
-	private handleIndexAccess(identifier: Token) {
-		this.consumeOrThrow("[");
-		const index = this.parseAst();
-		this.consumeOrThrow("]");
-		const indexAccess: AST.IndexAccess = {
-			type: AST.Type.IndexAccess,
-			target: identifier,
-			index: index,
-
-			line: identifier.line,
-			column: identifier.column,
-
-			...getLastPosNamed(index)
-		};
-
-		return indexAccess;
 	}
 
 	private handleLiteral() {
@@ -561,18 +553,21 @@ class Parser {
 		const ref = this.tokens.next();
 		const name = this.tokens.next();
 		this.consumeOrThrow("=");
-		const value = this.parseAst();
-		if (value.type != AST.Type.IndexAccess) throw new Error(`Unit reference must be an indexed lookup currently at ${value.line}:${value.column}`);
+		const unitGroup = this.tokens.next();
+		this.consumeOrThrow("[");
+		const index = this.parseAst();
+		this.consumeOrThrow("]");
 
 		const unitReference: AST.UnitReference = {
 			type: AST.Type.UnitReference,
 			name: name,
-			expression: value,
+			unitGroup: unitGroup,
+			indexer: index,
 
 			line: ref.line,
 			column: ref.column,
 
-			...getLastPosNamed(value)
+			...getLastPosNamed(ref)
 		};
 
 		return unitReference;

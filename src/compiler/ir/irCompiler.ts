@@ -52,6 +52,7 @@ class IRCompiler {
 			} else {
 				const event = new VTNode<EventKeys>("EVENT");
 				event.setValue("nodeName", "Event");
+				event.setValue("delay", 0);
 				const eventInfo = new VTNode("EventInfo");
 				eventInfo.setValue("eventName", null);
 				event.addChild(eventInfo);
