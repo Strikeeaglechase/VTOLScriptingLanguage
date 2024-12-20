@@ -1,0 +1,16 @@
+// !target C:/Program Files (x86)/Steam/steamapps/common/VTOL VR/CustomScenarios/Campaigns/chaseFeetPics/TestMission2/TestMission2.vts
+
+define targets: Unit = (1, 2, 10..17, 5, 18..106);
+// hi
+let a = 1;
+let b = 1;
+let c = 0;
+
+while (c < 100) {
+	targets[c].DestroySelf();
+
+	
+	c = a + b;
+	a = b;
+	b = c;
+}

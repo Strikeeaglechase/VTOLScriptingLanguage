@@ -1,3 +1,0 @@
-define targets: Unit = 6..10;
-
-targets[1].DestroySelf();
