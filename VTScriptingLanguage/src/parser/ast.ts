@@ -17,11 +17,13 @@ export namespace AST {
 		FunctionCall = "call",
 		IfStatement = "if",
 		LiteralNumber = "number",
+		LiteralString = "string",
 		Semi = "semi",
 		ForEach = "forEach",
 		For = "for",
 		While = "while",
-		Return = "return"
+		Return = "return",
+		Comment = "Comment"
 	}
 
 	type WalkHandlersMap = { [K in AnyAST["type"]]: (node: Extract<AnyAST, { type: K }>, visitor: (node: AnyAST) => void) => void };
@@ -64,7 +66,9 @@ export namespace AST {
 		},
 		[Type.Return]: (node, visitor) => visitor(node.value),
 		[Type.LiteralNumber]: () => {},
-		[Type.Semi]: () => {}
+		[Type.LiteralString]: () => {},
+		[Type.Semi]: () => {},
+		[Type.Comment]: () => {}
 	};
 
 	export const walk = (node: AnyAST, visitor: (node: AnyAST, depth: number) => void, depth = 0) => {
@@ -212,6 +216,11 @@ export namespace AST {
 		body: AnyAST[];
 	}
 
+	export interface LiteralString extends Node {
+		type: Type.LiteralString;
+		value: string;
+	}
+
 	export interface LiteralNumber extends Node {
 		type: Type.LiteralNumber;
 		// token: Token;
@@ -225,6 +234,11 @@ export namespace AST {
 
 	export interface Semi extends Node {
 		type: Type.Semi;
+	}
+
+	export interface Comment extends Node {
+		type: Type.Comment;
+		value: Token;
 	}
 
 	export type AnyAST =
@@ -247,5 +261,56 @@ export namespace AST {
 		| While
 		| Return
 		| LiteralNumber
-		| Semi;
+		| LiteralString
+		| Semi
+		| Comment;
+}
+
+export type Positional = { line: number; column: number; lineEnd?: number; columnEnd?: number };
+export function getLastPos(ast: Positional | Positional[], fallback?: Positional) {
+	if (ast === undefined && fallback === undefined) throw new Error("No fallback provided for getLastPos");
+	if ((Array.isArray(ast) && ast.length == 0) || !ast) return getLastPos(fallback);
+	const last = Array.isArray(ast) ? ast[ast.length - 1] : ast;
+	if (last.lineEnd) {
+		return {
+			line: last.lineEnd,
+			column: last.columnEnd
+		};
+	}
+
+	return {
+		line: last.line,
+		column: last.column
+	};
+}
+
+export function getLastPosNamed(ast: Positional | Positional[], fallback?: Positional) {
+	const last = getLastPos(ast, fallback);
+	return {
+		lineEnd: last.line,
+		columnEnd: last.column
+	};
+}
+
+export function correctOrderPos(a: Positional, b: Positional) {
+	const sameLine = a.line == b.line;
+	if (a.line < b.line || (sameLine && a.column < b.column)) {
+		const bEnd = getLastPos(b);
+		return {
+			line: a.line,
+			column: a.column,
+
+			lineEnd: bEnd.line,
+			columnEnd: bEnd.column
+		};
+	} else {
+		const aEnd = getLastPos(a);
+		return {
+			line: b.line,
+			column: b.column,
+
+			lineEnd: aEnd.line,
+			columnEnd: aEnd.column
+		};
+	}
 }

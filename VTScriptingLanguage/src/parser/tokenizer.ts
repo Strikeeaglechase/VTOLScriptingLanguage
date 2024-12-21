@@ -31,7 +31,8 @@ enum TokenType {
 	Operand = "operand",
 	Symbol = "symbol",
 	Identifier = "identifier",
-	Literal = "literal",
+	LiteralNumber = "literalNumber",
+	LiteralString = "literalString",
 	Comment = "comment"
 }
 
@@ -62,7 +63,7 @@ class Tokenizer {
 
 		const next = this.input.peek();
 		const pair = char + next?.char;
-		if (pair == "//") return this.parseComment();
+		if (pair == "//") return this.parseComment(posChar);
 		if (char == '"') return this.tokens.push(this.parseString('"'));
 		if (char == "'") return this.parseChar();
 		if (operands.includes(pair)) return this.parseOperand(pair, posChar);
@@ -107,7 +108,7 @@ class Tokenizer {
 			});
 		} else {
 			this.tokens.push({
-				type: TokenType.Literal,
+				type: TokenType.LiteralNumber,
 				value: value,
 				line: line,
 				column: column
@@ -115,9 +116,9 @@ class Tokenizer {
 		}
 	}
 
-	private parseComment() {
-		this.input.next();
-		const comment = this.input.readUntil(pc => pc.char == "\n");
+	private parseComment(pc: PosChar) {
+		const secondSlash = this.input.next();
+		const comment = [pc, secondSlash, ...this.input.readUntil(pc => pc.char == "\n")];
 
 		this.tokens.push({
 			type: TokenType.Comment,
@@ -154,7 +155,7 @@ class Tokenizer {
 		if (posChars.value.length > 1) throw new Error("Invalid char literal: " + posChars);
 
 		this.tokens.push({
-			type: TokenType.Literal,
+			type: TokenType.LiteralNumber,
 			value: posChars.value.charCodeAt(0).toString(),
 			line: posChars.line,
 			column: posChars.column
@@ -195,7 +196,7 @@ class Tokenizer {
 		}
 
 		return {
-			type: TokenType.Literal,
+			type: TokenType.LiteralString,
 			value: chars.join(""),
 			line: firstCharLine,
 			column: firstCharColumn

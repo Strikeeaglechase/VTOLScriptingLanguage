@@ -52,6 +52,11 @@ const stackSize = 16;
 
 const stackIdx = (i: number) => `_stack_${i}`;
 
+interface CompilerError {
+	message: string;
+	node: AST.AnyAST;
+}
+
 class Compiler {
 	private vts: VTNode;
 	private _nextId = idStart + 10;
@@ -70,6 +75,8 @@ class Compiler {
 	private popJumpFlagConditional = 0;
 
 	public gen: VTSGenerator;
+
+	public errors: CompilerError[] = [];
 
 	private get currentVTContext() {
 		return this.blockContextStack[this.blockContextStack.length - 1];
@@ -283,57 +290,63 @@ class Compiler {
 	}
 
 	private compileAst(ast: AST.AnyAST) {
-		switch (ast.type) {
-			case AST.Type.UnitDefine:
-				this.handleUnitDefine(ast);
-				break;
-			case AST.Type.FunctionDeclaration:
-				this.handleFunctionDeclaration(ast);
-				break;
-			case AST.Type.FunctionCall:
-				this.handleFunctionCall(ast);
-				break;
-			case AST.Type.MethodCall:
-				this.handleMethodCall(ast);
-				break;
-			case AST.Type.ForEach:
-				this.handleForEach(ast);
-				break;
-			case AST.Type.For:
-				this.handleFor(ast);
-				break;
-			case AST.Type.VariableDeclaration:
-				this.handleVarDeclaration(ast);
-				break;
-			case AST.Type.VariableAssignment:
-				this.handleVarAssignment(ast);
-				break;
-			case AST.Type.VariableReference:
-				this.handleVarReference(ast);
-				break;
-			case AST.Type.BinaryOperation:
-				this.handleBinaryOperation(ast);
-				break;
-			case AST.Type.LiteralNumber:
-				this.handleLiteralNumber(ast);
-				break;
-			case AST.Type.IfStatement:
-				this.handleIf(ast);
-				break;
-			case AST.Type.While:
-				this.handleWhile(ast);
-				break;
-			case AST.Type.Return:
-				this.handleReturn(ast);
-				break;
-			case AST.Type.UnaryOperation:
-				this.handleUnaryOperation(ast);
-				break;
-			case AST.Type.Semi:
-				break;
+		try {
+			switch (ast.type) {
+				case AST.Type.UnitDefine:
+					this.handleUnitDefine(ast);
+					break;
+				case AST.Type.FunctionDeclaration:
+					this.handleFunctionDeclaration(ast);
+					break;
+				case AST.Type.FunctionCall:
+					this.handleFunctionCall(ast);
+					break;
+				case AST.Type.MethodCall:
+					this.handleMethodCall(ast);
+					break;
+				case AST.Type.ForEach:
+					this.handleForEach(ast);
+					break;
+				case AST.Type.For:
+					this.handleFor(ast);
+					break;
+				case AST.Type.VariableDeclaration:
+					this.handleVarDeclaration(ast);
+					break;
+				case AST.Type.VariableAssignment:
+					this.handleVarAssignment(ast);
+					break;
+				case AST.Type.VariableReference:
+					this.handleVarReference(ast);
+					break;
+				case AST.Type.BinaryOperation:
+					this.handleBinaryOperation(ast);
+					break;
+				case AST.Type.LiteralNumber:
+					this.handleLiteralNumber(ast);
+					break;
+				case AST.Type.IfStatement:
+					this.handleIf(ast);
+					break;
+				case AST.Type.While:
+					this.handleWhile(ast);
+					break;
+				case AST.Type.Return:
+					this.handleReturn(ast);
+					break;
+				case AST.Type.UnaryOperation:
+					this.handleUnaryOperation(ast);
+					break;
+				case AST.Type.Semi:
+				case AST.Type.Comment:
+					break;
 
-			default:
-				throw new Error(`Unhandled AST type: ${ast.type}`);
+				default:
+					throw new Error(`Unhandled AST type: ${ast.type}`);
+			}
+		} catch (e) {
+			this.errors.push({ message: e.message, node: ast });
+			console.log(e);
 		}
 	}
 
@@ -681,4 +694,4 @@ class Compiler {
 	}
 }
 
-export { Compiler, vars, varIds };
+export { Compiler, CompilerError, vars, varIds };

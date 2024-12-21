@@ -2,6 +2,7 @@ import fs from "fs";
 import { RequestMessage, ResponseMessage } from "vscode-jsonrpc";
 import { WebSocketServer, WebSocket } from "ws";
 import {
+	CompletionParams,
 	DidChangeTextDocumentParams,
 	DidOpenTextDocumentParams,
 	DocumentColorParams,
@@ -15,12 +16,14 @@ import {
 	ServerCapabilities,
 	TextDocumentContentChangeEvent
 } from "./lspTypes/protocol.js";
-import { ColorInformation, Diagnostic, SemanticTokens } from "vscode-languageserver-types";
+import { ColorInformation, CompletionList, Diagnostic, SemanticTokens } from "vscode-languageserver-types";
 import { Preprocessor } from "./compiler/parser/preprocessor.js";
 import { Tokenizer } from "./compiler/parser/tokenizer.js";
 import { Parser } from "./compiler/parser/parser.js";
 import { Analyzer } from "./compiler/analyzer.js";
 import { Linker } from "./compiler/linker.js";
+import { basicVts } from "./compiler/baseVts.js";
+import { getLastPos } from "./compiler/parser/ast.js";
 
 enum TextDocumentSyncKind {
 	None = 0,
@@ -65,7 +68,9 @@ const serverCapabilities: ServerCapabilities = {
 		full: { delta: false },
 		range: false
 	},
-	completionProvider: { triggerCharacters: ["."] },
+	completionProvider: {
+		triggerCharacters: ["."]
+	},
 	diagnosticProvider: {
 		documentSelector: [{ pattern: "**/*.vtsl" }],
 		workspaceDiagnostics: false,
@@ -111,6 +116,7 @@ class LSP {
 		this.registerMessageHandler("textDocument/didOpen", this.handleDocumentOpen.bind(this));
 		this.registerMessageHandler("textDocument/didChange", this.handleDocumentChange.bind(this));
 		this.registerMessageHandler("textDocument/diagnostic", this.handleDiagnosticRequest.bind(this));
+		this.registerMessageHandler("textDocument/completion", this.handleCompletionRequest.bind(this));
 	}
 
 	private handleInit(message: RequestMessage, payload: InitializeParams) {
@@ -143,15 +149,14 @@ class LSP {
 
 	private setFile(uri: string, text: string) {
 		const linker = new Linker();
-		linker.compile(text, "", true);
+		linker.compile(text, basicVts);
 		this.files[uri] = { content: text, linker };
 	}
 
 	private handleDiagnosticRequest(message: RequestMessage, payload: DocumentDiagnosticParams) {
 		const file = this.files[payload.textDocument.uri];
-		const parseErrors = file.linker.parserErrors;
 
-		const diagnostics: Diagnostic[] = parseErrors.map(err => {
+		const parserDiagnostics: Diagnostic[] = file.linker.parserErrors.map(err => {
 			return {
 				message: err.message,
 				range: {
@@ -161,9 +166,21 @@ class LSP {
 			};
 		});
 
+		const compilerDiagnostics: Diagnostic[] = file.linker.compilerErrors.map(err => {
+			const end = getLastPos(err.node);
+
+			return {
+				message: err.message,
+				range: {
+					start: { line: err.node.line - 1, character: err.node.column - 1 },
+					end: { line: end.line - 1, character: end.column - 1 }
+				}
+			};
+		});
+
 		const diagnosticReport: FullDocumentDiagnosticReport = {
 			kind: "full",
-			items: diagnostics
+			items: [...parserDiagnostics, ...compilerDiagnostics]
 		};
 
 		return diagnosticReport;
@@ -193,6 +210,20 @@ class LSP {
 		};
 
 		return semanticTokensResponse;
+	}
+
+	private handleCompletionRequest(message: RequestMessage, payload: CompletionParams) {
+		const file = this.files[payload.textDocument.uri];
+		const symbols = file.linker.analyzer.getSymbolsAtLine(payload.position.line + 1, payload.position.character + 1);
+
+		const result: CompletionList = {
+			isIncomplete: false,
+			items: symbols.map(symbol => {
+				return { label: symbol };
+			})
+		};
+
+		return result;
 	}
 
 	private setupWs() {

@@ -4,7 +4,7 @@ import fs from "fs";
 import { readVtsFile, writeVtsFile } from "./vtsParser.js";
 import { Tokenizer } from "./parser/tokenizer.js";
 import { Preprocessor } from "./parser/preprocessor.js";
-import { Compiler } from "./compiler/compiler.js";
+import { Compiler, CompilerError } from "./compiler/compiler.js";
 import { IRGenerator } from "./compiler/ir/irGenerator.js";
 import { IROptimizer } from "./compiler/ir/irOptimizer.js";
 import { IRCompiler } from "./compiler/ir/irCompiler.js";
@@ -12,6 +12,12 @@ import { IRCompiler } from "./compiler/ir/irCompiler.js";
 class Linker {
 	public analyzer: Analyzer;
 	public parserErrors: ParserError[] = [];
+	public compilerErrors: CompilerError[] = [];
+
+	public get hasErrors() {
+		return this.parserErrors.length > 0 || this.compilerErrors.length > 0;
+	}
+
 	private debugEnabled = false;
 	private debugPath = "";
 
@@ -35,7 +41,11 @@ class Linker {
 
 		const compiler = new Compiler(ast, orgVts);
 		const compiledVts = compiler.compile();
+		this.compilerErrors = compiler.errors;
 		this.debug("output.vts", () => writeVtsFile(compiledVts));
+
+		if (this.hasErrors) return { compiledVts, irCompiledVts: null };
+
 		const irGenerator = new IRGenerator(compiledVts, compiler.gen.nodeInfos);
 		const ir = irGenerator.generateIR();
 		this.debug("ir.json", () => JSON.stringify(ir, null, 2));

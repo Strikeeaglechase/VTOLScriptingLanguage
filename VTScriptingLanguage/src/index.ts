@@ -19,6 +19,9 @@ const linker = new Linker();
 linker.enableDebugIn("../debug/");
 const { irCompiledVts } = linker.compile(source, sourceVts);
 
+linker.analyzer.debugAstSections();
+process.exit();
+
 irCompiledVts.setValue("scenarioID", "output", true);
 irCompiledVts.setValue("campaignOrderIdx", 1, true);
 fs.writeFileSync(

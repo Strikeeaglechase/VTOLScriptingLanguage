@@ -1,55 +1,6 @@
 import { Stream } from "../stream.js";
-import { AST } from "./ast.js";
+import { AST, correctOrderPos, getLastPos, getLastPosNamed } from "./ast.js";
 import { operandPrecedence, Token, TokenType } from "./tokenizer.js";
-
-type Positional = { line: number; column: number; lineEnd?: number; columnEnd?: number };
-function getLastPos(ast: Positional | Positional[], fallback?: Positional) {
-	if (ast === undefined && fallback === undefined) throw new Error("No fallback provided for getLastPos");
-	if ((Array.isArray(ast) && ast.length == 0) || !ast) return getLastPos(fallback);
-	const last = Array.isArray(ast) ? ast[ast.length - 1] : ast;
-	if (last.lineEnd) {
-		return {
-			line: last.lineEnd,
-			column: last.columnEnd
-		};
-	}
-
-	return {
-		line: last.line,
-		column: last.column
-	};
-}
-
-function getLastPosNamed(ast: Positional | Positional[], fallback?: Positional) {
-	const last = getLastPos(ast, fallback);
-	return {
-		lineEnd: last.line,
-		columnEnd: last.column
-	};
-}
-
-function correctOrderPos(a: Positional, b: Positional) {
-	const sameLine = a.line == b.line;
-	if (a.line < b.line || (sameLine && a.column < b.column)) {
-		const bEnd = getLastPos(b);
-		return {
-			line: a.line,
-			column: a.column,
-
-			lineEnd: bEnd.line,
-			columnEnd: bEnd.column
-		};
-	} else {
-		const aEnd = getLastPos(a);
-		return {
-			line: b.line,
-			column: b.column,
-
-			lineEnd: aEnd.line,
-			columnEnd: aEnd.column
-		};
-	}
-}
 
 interface ParserError {
 	message: string;
@@ -60,6 +11,7 @@ interface ParserError {
 
 class Parser {
 	public errors: ParserError[] = [];
+	private lastMaybeConsumed: Token;
 	constructor(private tokens: Stream<Token>) {}
 
 	public parse() {
@@ -86,8 +38,11 @@ class Parser {
 				case TokenType.Keyword:
 					result = this.handleKeyword();
 					break;
-				case TokenType.Literal:
-					result = this.handleLiteral();
+				case TokenType.LiteralNumber:
+					result = this.handleLiteralNumber();
+					break;
+				case TokenType.LiteralString:
+					result = this.handleLiteralString();
 					break;
 				case TokenType.Symbol:
 					result = this.handleSymbol();
@@ -99,7 +54,7 @@ class Parser {
 					result = this.handleIdentifier();
 					break;
 				case TokenType.Comment:
-					this.tokens.next();
+					result = this.handleComment();
 					return;
 				default:
 					throw new Error(`Unexpected type ${token.type} (${token.value}) at ${token.line}:${token.column}`);
@@ -127,6 +82,21 @@ class Parser {
 
 			return null;
 		}
+	}
+
+	private handleComment() {
+		const commentToken = this.tokens.next();
+		const comment: AST.Comment = {
+			type: AST.Type.Comment,
+			value: commentToken,
+
+			line: commentToken.line,
+			column: commentToken.column,
+			lineEnd: commentToken.line,
+			columnEnd: commentToken.column + commentToken.value.length
+		};
+
+		return comment;
 	}
 
 	private handleIncOrDec(left: AST.AnyAST, operation: string) {
@@ -224,7 +194,7 @@ class Parser {
 			}
 
 			case ";": {
-				const semi: AST.Semi = { type: AST.Type.Semi, line: symbol.line, column: symbol.column };
+				const semi: AST.Semi = { type: AST.Type.Semi, line: symbol.line, column: symbol.column, lineEnd: symbol.line, columnEnd: symbol.column + 1 };
 				return semi;
 			}
 
@@ -281,7 +251,9 @@ class Parser {
 			type: AST.Type.VariableReference,
 			name: identifier,
 			line: identifier.line,
-			column: identifier.column
+			column: identifier.column,
+			lineEnd: identifier.line,
+			columnEnd: identifier.column + identifier.value.length
 		};
 
 		return variableReference;
@@ -346,7 +318,7 @@ class Parser {
 				line: identifier.line,
 				column: identifier.column,
 
-				...getLastPosNamed(args, identifier)
+				...getLastPosNamed(args, nextTkn)
 			};
 
 			return methodCall;
@@ -367,7 +339,7 @@ class Parser {
 		return propertyAccess;
 	}
 
-	private handleLiteral() {
+	private handleLiteralNumber() {
 		const literal = this.tokens.next();
 		const val = parseInt(literal.value);
 		if (isNaN(val)) throw new Error(`Invalid numeric ${literal.value} at ${literal.line}:${literal.column}`);
@@ -376,10 +348,27 @@ class Parser {
 			type: AST.Type.LiteralNumber,
 			value: val,
 			line: literal.line,
-			column: literal.column
+			column: literal.column,
+			lineEnd: literal.line,
+			columnEnd: literal.column + literal.value.length
 		};
 
 		return literalNumber;
+	}
+
+	private handleLiteralString() {
+		const literal = this.tokens.next();
+		const val = literal.value;
+		const literalString: AST.LiteralString = {
+			type: AST.Type.LiteralString,
+			value: val,
+			line: literal.line,
+			column: literal.column,
+			lineEnd: literal.line,
+			columnEnd: literal.column + val.length
+		};
+
+		return literalString;
 	}
 
 	private parseOptionallyParenthesizedList() {
@@ -474,7 +463,7 @@ class Parser {
 			line: forEach.line,
 			column: forEach.column,
 
-			...getLastPosNamed(body)
+			...getLastPosNamed([...body, this.lastMaybeConsumed])
 		};
 
 		return forEachStatement;
@@ -501,7 +490,7 @@ class Parser {
 			line: forTok.line,
 			column: forTok.column,
 
-			...getLastPosNamed(body)
+			...getLastPosNamed([...body, this.lastMaybeConsumed])
 		};
 
 		return forStatement;
@@ -522,7 +511,7 @@ class Parser {
 			line: _while.line,
 			column: _while.column,
 
-			...getLastPosNamed(body)
+			...getLastPosNamed([...body, this.lastMaybeConsumed])
 		};
 
 		return whileStatement;
@@ -550,7 +539,7 @@ class Parser {
 			line: fn.line,
 			column: fn.column,
 
-			...getLastPosNamed(body)
+			...getLastPosNamed([...body, this.lastMaybeConsumed])
 		};
 
 		return functionDeclaration;
@@ -632,7 +621,7 @@ class Parser {
 			line: _if.line,
 			column: _if.column,
 
-			...getLastPosNamed(elseBody, getLastPos(elIfs, getLastPos(body)))
+			...getLastPosNamed([...elseBody, this.lastMaybeConsumed], getLastPos(elIfs, getLastPos(body)))
 		};
 
 		return ifStatement;
@@ -641,10 +630,11 @@ class Parser {
 	private maybeConsume(value: string) {
 		const next = this.tokens.peek();
 		if (next.value == value) {
-			this.tokens.next();
+			this.lastMaybeConsumed = this.tokens.next();
 			return true;
 		}
 
+		this.lastMaybeConsumed = null;
 		return false;
 	}
 
