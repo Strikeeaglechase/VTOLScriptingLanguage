@@ -102,7 +102,7 @@ class Analyzer {
 	}
 
 	public getSymbolsAtLine(line: number, column: number) {
-		const contextRange = this.contextRanges.find(ctx => {
+		const contextRange = this.contextRanges.filter(ctx => {
 			if (line > ctx.startLine && line < ctx.endLine) return true; // Inside context
 			const firstLineInside = line != ctx.startLine || column >= ctx.startColumn;
 			const lastLineInside = line != ctx.endLine || column <= ctx.endColumn;
@@ -111,9 +111,12 @@ class Analyzer {
 			return inLineBounds && firstLineInside && lastLineInside;
 		});
 
-		if (!contextRange) return this.contexts[0].allVars().concat(this.unitLists.map(unit => unit.name));
+		const vars: Set<string> = new Set();
+		this.unitLists.forEach(unit => vars.add(unit.name));
+		this.contexts[0].allVars().forEach(varName => vars.add(varName));
+		contextRange.forEach(range => range.context.allVars().forEach(varName => vars.add(varName)));
 
-		return contextRange.context.allVars().concat(this.unitLists.map(unit => unit.name));
+		return Array.from(vars);
 	}
 
 	public getTokenSemantics() {
