@@ -26,16 +26,20 @@ fs.writeFileSync(
 	writeVtsFile(irCompiledVts)
 );
 
-const emulateLog = fs.createWriteStream("../debug/elog.txt");
-const emulator = new Emulator(irCompiledVts, true, emulateLog);
-const t = Date.now();
-emulator.execute().then(() => {
+async function run() {
+	const emulateLog = fs.createWriteStream("../debug/elog.txt");
+	const emulator = new Emulator(irCompiledVts, true, emulateLog);
+	const t = Date.now();
+	await emulator.execute();
+
 	debugSymbols.forEach(s => {
 		console.log(emulator.getGvByName(s));
 	});
 	console.log(`Executed ${emulator.totalExecutedEventCount} events (${Date.now() - t}ms)`);
 	fs.writeFileSync("../debug/emulator.txt", emulator.execLog);
-});
 
-const unitTests = new UnitTester();
-unitTests.runTests();
+	const unitTests = new UnitTester();
+	unitTests.runTests();
+}
+
+run();

@@ -30,12 +30,12 @@ export interface RefVar {
 }
 
 const vars = {
-	result: "result",
-	mathA: "mathA",
-	mathB: "mathB",
-	stackOverflowFlag: "stackOverflowFlag",
-	jumpFlag: "jumpFlag",
-	sp: "sp"
+	result: "c_result",
+	mathA: "c_mathA",
+	mathB: "c_mathB",
+	stackOverflowFlag: "c_stackOverflowFlag",
+	jumpFlag: "c_jumpFlag",
+	sp: "c_sp"
 };
 
 const idStart = 10000;
@@ -52,6 +52,23 @@ const stackSize = 16;
 
 const stackIdx = (i: number) => `_stack_${i}`;
 
+// Traditionally function parameters are pushed onto the stack and popped within the function
+// Because we don't support recursion each function has its own singular dedicated variable
+// So we can write directly to that variable, which *can* save instructions when optimization is enabled
+enum FunctionParamMode {
+	Stack,
+	DirectWrite
+}
+const functionParamMode: FunctionParamMode = FunctionParamMode.DirectWrite;
+
+interface FunctionDeclaration {
+	name: string;
+	id: number;
+	jumpFlagId: number;
+	context: Context;
+	params: GV[];
+}
+
 interface CompilerError {
 	message: string;
 	node: AST.AnyAST;
@@ -66,7 +83,7 @@ class Compiler {
 	private blockContextStack: VTNode[] = [];
 	private contextStack: Context[] = [];
 	private refVars: RefVar[] = [];
-	private functions: { name: string; id: number; jumpFlagId: number }[] = [];
+	private functions: FunctionDeclaration[] = [];
 
 	private pushActionId = 0;
 	private popActionId = 0;
@@ -150,11 +167,11 @@ class Compiler {
 			const setCondJumpFlag = this.gen.gvSet(this.vn(vars.jumpFlag), condActionJumpFlagValue);
 
 			// Base case
-			const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn("sp"), 0, "Equals"));
+			const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.sp), 0, "Equals"));
 			const actionParent = new VTNode<"eventName">("ACTIONS");
 			actionParent.setValue("eventName", null);
 			actionParent.addChild(this.gen.gvCopy(this.vn(vars.result), this.vn(stackIdx(0))));
-			actionParent.addChild(this.gen.gvIncDec(this.vn("sp"), 1, "IncrementValue"));
+			actionParent.addChild(this.gen.gvIncDec(this.vn(vars.sp), 1, "IncrementValue"));
 			actionParent.addChild(setCondJumpFlag);
 
 			const baseBlock = pushCondAction.findChildWithName("BASE_BLOCK");
@@ -165,12 +182,12 @@ class Compiler {
 				const elseIf = new VTNode<BaseBlockKeys>("ELSE_IF");
 				elseIf.setValue("{blockName}", `stack[${i}]`);
 				elseIf.setValue("blockId", this.nextId());
-				const elseIfConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn("sp"), i, "Equals"));
+				const elseIfConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.sp), i, "Equals"));
 
 				const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
 				elseIfActionParent.setValue("eventName", null);
 				elseIfActionParent.addChild(this.gen.gvCopy(this.vn(vars.result), this.vn(stackIdx(i))));
-				elseIfActionParent.addChild(this.gen.gvIncDec(this.vn("sp"), 1, "IncrementValue"));
+				elseIfActionParent.addChild(this.gen.gvIncDec(this.vn(vars.sp), 1, "IncrementValue"));
 				elseIfActionParent.addChild(setCondJumpFlag);
 
 				elseIf.addChild(elseIfConditional);
@@ -197,10 +214,10 @@ class Compiler {
 			const setCondJumpFlag = this.gen.gvSet(this.vn(vars.jumpFlag), condActionJumpFlagValue);
 
 			// Base case
-			const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn("sp"), 1, "Equals"));
+			const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.sp), 1, "Equals"));
 			const actionParent = new VTNode<"eventName">("ACTIONS");
 			actionParent.setValue("eventName", null);
-			actionParent.addChild(this.gen.gvIncDec(this.vn("sp"), 1, "DecrementValue"));
+			actionParent.addChild(this.gen.gvIncDec(this.vn(vars.sp), 1, "DecrementValue"));
 			actionParent.addChild(this.gen.gvCopy(this.vn(stackIdx(0)), this.vn(vars.result)));
 			actionParent.addChild(setCondJumpFlag);
 
@@ -212,11 +229,11 @@ class Compiler {
 				const elseIf = new VTNode<BaseBlockKeys>("ELSE_IF");
 				elseIf.setValue("{blockName}", `stack[${i}]`);
 				elseIf.setValue("blockId", this.nextId());
-				const elseIfConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn("sp"), i + 1, "Equals"));
+				const elseIfConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.sp), i + 1, "Equals"));
 
 				const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
 				elseIfActionParent.setValue("eventName", null);
-				elseIfActionParent.addChild(this.gen.gvIncDec(this.vn("sp"), 1, "DecrementValue"));
+				elseIfActionParent.addChild(this.gen.gvIncDec(this.vn(vars.sp), 1, "DecrementValue"));
 				elseIfActionParent.addChild(this.gen.gvCopy(this.vn(stackIdx(i)), this.vn(vars.result)));
 				elseIfActionParent.addChild(setCondJumpFlag);
 
@@ -593,16 +610,31 @@ class Compiler {
 	private handleFunctionDeclaration(ast: AST.FunctionDeclaration) {
 		const fnSeq = this.gen.sequence(ast.name.value);
 		const { jumpFlagValue, condId } = this.getJumpFlagConditional();
-		this.functions.push({ name: ast.name.value, id: fnSeq.getValue("id") as number, jumpFlagId: condId });
 
 		const fnCtx = new Context(this.context, this.nextId.bind(this));
+		const declaration: FunctionDeclaration = {
+			name: ast.name.value,
+			id: fnSeq.getValue("id") as number,
+			jumpFlagId: condId,
+			context: fnCtx,
+			params: []
+		};
+
+		this.functions.push(declaration);
 		this.contextStack.push(fnCtx);
-		ast.parameters.forEach(param => this.makeVar(param.value));
+
+		ast.parameters.forEach(param => {
+			const newVar = this.makeVar(param.value);
+			declaration.params.push(newVar);
+		});
+
 		this.withContext(fnSeq, () => {
-			ast.parameters.reverse().forEach(param => {
-				this.pop();
-				this.add(this.gen.gvCopy(this.vn(vars.result), this.vn(param.value)));
-			});
+			if (functionParamMode == FunctionParamMode.Stack) {
+				ast.parameters.reverse().forEach(param => {
+					this.pop();
+					this.add(this.gen.gvCopy(this.vn(vars.result), this.vn(param.value)));
+				});
+			}
 
 			ast.body.forEach(child => this.compileAst(child));
 
@@ -615,7 +647,16 @@ class Compiler {
 		const fn = this.functions.find(f => f.name == ast.target.value);
 		if (!fn) throw new Error(`Function "${ast.target.value}" not found`);
 
-		ast.arguments.forEach(arg => this.compileAst(arg));
+		ast.arguments.forEach((arg, idx) => {
+			this.compileAst(arg);
+
+			if (functionParamMode == FunctionParamMode.DirectWrite) {
+				this.pop();
+				const param = fn.params[idx];
+				this.add(this.gen.gvCopy(this.vn(vars.result), param.id));
+			}
+		});
+
 		this.add(this.gen.callSequence(fn.id));
 		this.splitCurrentContext(fn.jumpFlagId);
 	}

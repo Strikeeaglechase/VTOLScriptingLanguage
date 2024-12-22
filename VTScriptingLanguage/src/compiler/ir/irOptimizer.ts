@@ -77,7 +77,47 @@ class IROptimizer {
 		return eventLists;
 	}
 
-	// Optimize things like result = N, B = result, result = _ to just be C = B
+	private isResultUsedAfter(events: IREvent[], index: number) {
+		let isUsed = false;
+		let done = false;
+		for (let j = index; j < events.length; j++) {
+			const current = events[j];
+			switch (events[j].method) {
+				case "fireConditional":
+					if (current.args[0].value == this.popAction.id) done = true; // Pop overwrites result
+					else isUsed = true;
+					break;
+
+				// Check overwrite result
+				case "gvSet":
+					if (current.args[0].value == this.resultGv.id) done = true;
+					break;
+
+				// Incrementing result mutates, but requires it be set
+				case "gvIncDec":
+					if (current.args[0].value == this.resultGv.id) isUsed = true;
+					break;
+
+				// Used anywhere in math is a problem
+				case "gvMath":
+					if (current.args[0].value == this.resultGv.id || current.args[1].value == this.resultGv.id) isUsed = true;
+					break;
+
+				// Only a problem if we're copying the result out
+				case "gvCopy":
+					if (current.args[0].value == this.resultGv.id) isUsed = true;
+					if (current.args[1].value == this.resultGv.id) done = true;
+
+					break;
+			}
+
+			if (isUsed || done) break;
+		}
+
+		return isUsed;
+	}
+
+	// Optimize things like result = N, B = result, result = _ to just B = N
 	private removeRedundantAssignments(eventLists: IREventList[]) {
 		eventLists.forEach(el => {
 			const events = el.events;
@@ -96,41 +136,7 @@ class IROptimizer {
 				}
 
 				// Make sure the result is not used after this
-				let isUsed = false;
-				let done = false;
-				for (let j = i + 2; j < events.length; j++) {
-					const current = events[j];
-					switch (events[j].method) {
-						case "fireConditional":
-							if (current.args[0].value == this.popAction.id) done = true; // Pop overwrites result
-							else isUsed = true;
-							break;
-
-						// Check overwrite result
-						case "gvSet":
-							if (current.args[0].value == this.resultGv.id) done = true;
-							break;
-
-						// Incrementing result mutates, but requires it be set
-						case "gvIncDec":
-							if (current.args[0].value == this.resultGv.id) isUsed = true;
-							break;
-
-						// Used anywhere in math is a problem
-						case "gvMath":
-							if (current.args[0].value == this.resultGv.id || current.args[1].value == this.resultGv.id) isUsed = true;
-							break;
-
-						// Only a problem if we're copying the result out
-						case "gvCopy":
-							if (current.args[0].value == this.resultGv.id) isUsed = true;
-							if (current.args[1].value == this.resultGv.id) done = true;
-
-							break;
-					}
-
-					if (isUsed || done) break;
-				}
+				let isUsed = this.isResultUsedAfter(events, i + 2);
 
 				if (!isUsed) {
 					// We don't need to do the extra assignment
@@ -149,6 +155,39 @@ class IROptimizer {
 		return eventLists;
 	}
 
+	// Optimize things like result = B, C = result to C = B (if result is not used again)
+	private removeRedundantCopies(eventLists: IREventList[]) {
+		eventLists.forEach(el => {
+			const events = el.events;
+			const newEvents: IREvent[] = [];
+			for (let i = 0; i < events.length; i++) {
+				if (events[i].method != "gvCopy" || events[i].args[1].value != this.resultGv.id) {
+					newEvents.push(events[i]);
+					continue;
+				}
+
+				const next = events[i + 1];
+				if (!next || next.method != "gvCopy" || next.args[0].value != this.resultGv.id) {
+					newEvents.push(events[i]);
+					continue;
+				}
+
+				const isUsed = this.isResultUsedAfter(events, i + 2);
+				if (!isUsed) {
+					events[i].args[1].value = next.args[1].value;
+					newEvents.push(events[i]);
+					i++;
+				} else {
+					newEvents.push(events[i]);
+				}
+			}
+
+			el.events = newEvents;
+		});
+
+		return eventLists;
+	}
+
 	private optimizeEventList(events: IREventList[]) {
 		if (events.length == 0) return [];
 
@@ -156,6 +195,7 @@ class IROptimizer {
 			events = this.removeFarPushPop(events);
 			events = this.removeUselessAssignments(events);
 			events = this.removeRedundantAssignments(events);
+			events = this.removeRedundantCopies(events);
 		}
 
 		return events;
