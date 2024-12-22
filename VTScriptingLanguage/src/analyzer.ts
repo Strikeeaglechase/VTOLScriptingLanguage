@@ -57,31 +57,6 @@ class Analyzer {
 		AST.walk(this.ast, node => this.flatAst.push(node));
 	}
 
-	public debugAstSections() {
-		let result = ``;
-		let lastNode: AST.AnyAST = null;
-
-		this.tokens.forEach(token => {
-			const node = this.flatAst.find(ast => {
-				const endPos = getLastPos(ast);
-				return token.line >= ast.line && token.column >= ast.column && token.line <= endPos.line && token.column <= endPos.column;
-			});
-
-			if (!node) {
-				result += `\nUnknown:\n`;
-				lastNode = null;
-			} else if (node != lastNode) {
-				result += `\n${node.type}:\n`;
-				lastNode = node;
-			}
-
-			// result += `${token.value} `;
-			result += `\t${token.line}:${token.column} ${token.type} ${token.value}\n`;
-		});
-
-		fs.writeFileSync("../debug/astSections.txt", result);
-	}
-
 	public analyze() {
 		this.flatAst.forEach(ast => this.analyzeAst(ast));
 	}

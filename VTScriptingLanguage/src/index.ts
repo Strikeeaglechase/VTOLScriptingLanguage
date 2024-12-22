@@ -12,15 +12,12 @@ else sourceCodePath = "../source/code.vtsl";
 
 const source = fs.readFileSync(sourceCodePath, "utf8");
 const sourceVts = fs.readFileSync(sourceVtsPath, "utf8");
-const debugSymbolsMatch = source.match(/\/\/ ?Debug:(.+)/);
+const debugSymbolsMatch = source.match(/\/\/ ?Debug:(.+)/i);
 const debugSymbols = debugSymbolsMatch ? debugSymbolsMatch[1].split(",").map(s => s.trim()) : [];
 
 const linker = new Linker();
 linker.enableDebugIn("../debug/");
 const { irCompiledVts } = linker.compile(source, sourceVts);
-
-linker.analyzer.debugAstSections();
-process.exit();
 
 irCompiledVts.setValue("scenarioID", "output", true);
 irCompiledVts.setValue("campaignOrderIdx", 1, true);
@@ -41,4 +38,4 @@ emulator.execute().then(() => {
 });
 
 const unitTests = new UnitTester();
-// unitTests.runTests();
+unitTests.runTests();

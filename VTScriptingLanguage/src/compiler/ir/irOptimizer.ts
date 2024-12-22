@@ -1,11 +1,11 @@
 import { vars } from "../compiler.js";
-import { IR, IREvent, IREventList, IRGV, IRSequence } from "./irGenerator.js";
+import { IR, IRConditionalAction, IREvent, IREventList, IRGV, IRSequence } from "./irGenerator.js";
 
 const OPTIMIZATION_PASS_COUNT = 1;
 
 class IROptimizer {
-	private popSeq: IRSequence;
-	private pushSeq: IRSequence;
+	private popAction: IRConditionalAction;
+	private pushAction: IRConditionalAction;
 	private resultGv: IRGV;
 
 	private ir: IR;
@@ -53,10 +53,10 @@ class IROptimizer {
 			const nextNextEventList = eventLists[i + 2];
 
 			const lastEvent = eventList.events[eventList.events.length - 1];
-			const lastIsPush = lastEvent.method == "callSequence" && lastEvent.args[0].value == this.pushSeq.id;
+			const lastIsPush = lastEvent.method == "fireConditional" && lastEvent.args[0].value == this.pushAction.id;
 
 			const secondEventInNext = nextEventList.events[1];
-			const firstIsPop = secondEventInNext?.method == "callSequence" && secondEventInNext?.args[0].value == this.popSeq.id;
+			const firstIsPop = secondEventInNext?.method == "fireConditional" && secondEventInNext?.args[0].value == this.popAction.id;
 
 			if (!lastIsPush || !firstIsPop) {
 				continue;
@@ -101,8 +101,8 @@ class IROptimizer {
 				for (let j = i + 2; j < events.length; j++) {
 					const current = events[j];
 					switch (events[j].method) {
-						case "callSequence":
-							if (current.args[0].value == this.popSeq.id) done = true; // Pop overwrites result
+						case "fireConditional":
+							if (current.args[0].value == this.popAction.id) done = true; // Pop overwrites result
 							else isUsed = true;
 							break;
 
@@ -162,8 +162,8 @@ class IROptimizer {
 	}
 
 	public optimize() {
-		this.pushSeq = this.ir.sequences.find(seq => seq.name == "push");
-		this.popSeq = this.ir.sequences.find(seq => seq.name == "pop");
+		this.pushAction = this.ir.conditionalActions.find(seq => seq.name == "push");
+		this.popAction = this.ir.conditionalActions.find(seq => seq.name == "pop");
 		this.resultGv = this.ir.gvs.find(gv => gv.name == vars.result);
 
 		this.ir.sequences.forEach(seq => (seq.events = this.optimizeEventList(seq.events)));

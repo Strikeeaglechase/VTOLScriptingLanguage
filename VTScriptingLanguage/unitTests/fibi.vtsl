@@ -1,0 +1,28 @@
+//EXPECT-EVENT 1.DestroySelf
+//EXPECT-EVENT 10.DestroySelf
+//EXPECT-EVENT 11.DestroySelf
+//EXPECT-EVENT 13.DestroySelf
+//EXPECT-EVENT 16.DestroySelf
+//EXPECT-EVENT 20.DestroySelf
+//EXPECT-EVENT 41.DestroySelf
+//EXPECT-EVENT 62.DestroySelf
+//EXPECT-EVENT 96.DestroySelf
+
+define targets: Unit = (1, 2, 10..17, 5, 18..106);
+let a = 1;
+let b = 1;
+let c = 0; 
+
+fn doPartialFib(a2, b2, c2) {
+	targets[c2].DestroySelf();
+
+	return a2 + b2;
+}
+
+while (c < 100) {
+	//c = doPartialFib(a, b, c);
+	targets[c].DestroySelf();
+	c = a + b;
+	a = b;
+	b = c;
+}

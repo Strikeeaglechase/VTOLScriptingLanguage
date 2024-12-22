@@ -1,15 +1,8 @@
 import chalk from "chalk";
 import fs from "fs";
 
-import { Compiler } from "./compiler/compiler.js";
-import { IRCompiler } from "./compiler/ir/irCompiler.js";
-import { IRGenerator } from "./compiler/ir/irGenerator.js";
-import { IROptimizer } from "./compiler/ir/irOptimizer.js";
 import { Emulator } from "./emulator/emulator.js";
-import { Parser } from "./parser/parser.js";
-import { Preprocessor } from "./parser/preprocessor.js";
-import { Tokenizer } from "./parser/tokenizer.js";
-import { readVtsFile, VTNode } from "./vtsParser.js";
+import { VTNode } from "./vtsParser.js";
 import { Linker } from "./linker.js";
 
 class UnitTester {
@@ -64,8 +57,10 @@ class UnitTester {
 		const source = fs.readFileSync(sourcePath, "utf-8");
 		const sourceVts = fs.readFileSync("../unitTests/base.vts", "utf-8");
 		const expectedMatch = source.matchAll(/\/\/ ?EXPECT (.+)=(.+)/gi);
+		const expectedEventsMatch = source.matchAll(/\/\/EXPECT-EVENT (\d+)\.(.+)/gi);
 		const expected = [...expectedMatch].map(m => ({ varName: m[1], value: m[2] }));
-		if (expected.length == 0) return;
+		const expectedEvents = [...expectedEventsMatch].map(m => ({ unitId: parseInt(m[1]), method: m[2] }));
+		if (expected.length == 0 && expectedEvents.length == 0) return;
 
 		const testFileName = testFile.split(".")[0];
 		if (!fs.existsSync(`../debug/unitTests/${testFileName}/`)) fs.mkdirSync(`../debug/unitTests/${testFileName}/`);
@@ -77,14 +72,14 @@ class UnitTester {
 			const linker = new Linker();
 			linker.enableDebugIn(`../debug/unitTests/${testFileName}/`);
 			const { irCompiledVts, compiledVts } = linker.compile(source, sourceVts);
-			resultVtsUnopt = irCompiledVts;
-			resultVtsOpt = compiledVts;
+			resultVtsOpt = irCompiledVts;
+			resultVtsUnopt = compiledVts;
 
 			const compileEnd = Date.now();
 			this.compileTime += compileEnd - compileStart;
 		} catch (e) {
 			console.log(chalk.red(`Test ${testFile} failed to compile because ${e.message}`));
-			this.totalTests += expected.length;
+			this.totalTests += expected.length + expectedEvents.length;
 			return;
 		}
 
@@ -114,8 +109,19 @@ class UnitTester {
 			const gvOpt = emulatorOpt.getGvByName(e.varName);
 			const passesUnopt = gvUnopt.value == parseInt(e.value);
 			const passesOpt = gvOpt.value == parseInt(e.value);
-			if (!passesUnopt) console.log(chalk.red(`Unoptimized Test ${testFile} failed on case ${i}, expected ${e.value} but got ${gvOpt.value}`));
+			if (!passesUnopt) console.log(chalk.red(`Unoptimized Test ${testFile} failed on case ${i}, expected ${e.value} but got ${gvUnopt.value}`));
 			if (!passesOpt) console.log(chalk.red(`Optimized Test ${testFile} failed on case ${i}, expected ${e.value} but got ${gvOpt.value}`));
+
+			if (!passesUnopt || !passesOpt) allPass = false;
+			else this.totalPassed++;
+		});
+
+		expectedEvents.forEach((e, i) => {
+			this.totalTests++;
+			const passesUnopt = emulatorUnopt.executedEvents.some(ev => ev.unitId == e.unitId && ev.method == e.method);
+			const passesOpt = emulatorOpt.executedEvents.some(ev => ev.unitId == e.unitId && ev.method == e.method);
+			if (!passesUnopt) console.log(chalk.red(`Unoptimized Test ${testFile} failed on event case ${i}, expected ${e.unitId}.${e.method}`));
+			if (!passesOpt) console.log(chalk.red(`Optimized Test ${testFile} failed on event case ${i}, expected ${e.unitId}.${e.method}`));
 
 			if (!passesUnopt || !passesOpt) allPass = false;
 			else this.totalPassed++;

@@ -15,6 +15,7 @@ const useAsync = false;
 
 class Emulator {
 	private gvs: GV[] = [];
+	public executedEvents: { unitId: number; method: string }[] = [];
 	public totalExecutedEventCount = 0;
 	public execLog: string = "";
 
@@ -320,7 +321,8 @@ class Emulator {
 	}
 
 	private handleUnitEvent(event: VTNode<EventTargetKeys>, depth: number) {
-		console.log(`Unit ${event.getValue("targetID")}.${event.getValue("methodName")}()`);
+		if (this.debug) console.log(`Unit ${event.getValue("targetID")}.${event.getValue("methodName")}()`);
+		this.executedEvents.push({ unitId: event.getValue("targetID"), method: event.getValue("methodName") });
 	}
 
 	private waitForHalt() {

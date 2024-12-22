@@ -55,7 +55,7 @@ class Parser {
 					break;
 				case TokenType.Comment:
 					result = this.handleComment();
-					return;
+					break;
 				default:
 					throw new Error(`Unexpected type ${token.type} (${token.value}) at ${token.line}:${token.column}`);
 			}

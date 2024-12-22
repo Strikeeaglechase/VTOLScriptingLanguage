@@ -1,17 +1,3 @@
-define targets: Unit = (1, 2, 10..17, 5, 18..106);
-let a = 1;
-let b = 1;
-let c = 0; 
-
-fn localContext(a2, b2, c2) {
-	
-}
-
-while (c < 100) {
-	targets[c].DestroySelf();
-	
-	
-	c = a + b;
-	a = b;
-	b = c;
-}
+//DEBUG: n
+let x = 6;
+let n = -x;

@@ -4,7 +4,8 @@
 	"description": "",
 	"main": "index.js",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"run": "cd dist && nodemon index.js -w ../source -w . -e js,vtsl"
 	},
 	"keywords": [],
 	"type": "module",
