@@ -357,12 +357,12 @@ class VTSGenerator {
 	}
 
 	@Track
-	public stackOverflowExceptionObjective() {
-		const condition = this.conditionalWithCondition(this.gvComp(varIds.stackOverflowFlag, 1, "Equals"));
+	public exceptionObjective(name: string, gv: number) {
+		const condition = this.conditionalWithCondition(this.gvComp(gv, 1, "Equals"));
 
 		const objective = new VTNode<ObjectiveKeys>("Objective")
-			.setValue("objectiveName", "Stack Overflow")
-			.setValue("objectiveInfo", "Stack Overflow")
+			.setValue("objectiveName", name)
+			.setValue("objectiveInfo", name)
 			.setValue("objectiveID", this.nextId())
 			.setValue("orderID", 0)
 			.setValue("required", true)

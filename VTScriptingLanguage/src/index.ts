@@ -4,6 +4,7 @@ import { Emulator } from "./emulator/emulator.js";
 import { UnitTester } from "./unitTests.js";
 import { writeVtsFile } from "./vtsParser.js";
 import { Linker } from "./linker.js";
+import chalk from "chalk";
 
 let sourceVtsPath = "C:/Program Files (x86)/Steam/steamapps/common/VTOL VR/CustomScenarios/Campaigns/chaseFeetPics/TestMission2/TestMission2.vts";
 let sourceCodePath: string;
@@ -18,6 +19,10 @@ const debugSymbols = debugSymbolsMatch ? debugSymbolsMatch[1].split(",").map(s =
 const linker = new Linker();
 linker.enableDebugIn("../debug/");
 const { irCompiledVts } = linker.compile(source, sourceVts);
+if (linker.hasErrors) {
+	console.log(chalk.red(`Compilation failed with ${linker.parserErrors.length} parse errors and ${linker.compilerErrors.length} linker errors`));
+	process.exit(1);
+}
 
 irCompiledVts.setValue("scenarioID", "output", true);
 irCompiledVts.setValue("campaignOrderIdx", 1, true);

@@ -3,10 +3,17 @@ interface GV {
 	id: number;
 }
 
+interface Iterator {
+	unitList: string;
+	backingGv: GV;
+	name: string;
+}
+
 let contextId = 0;
 class Context {
 	private ctxId = contextId++;
 	private gvs: GV[] = [];
+	private iterators: Iterator[] = [];
 
 	constructor(public parent: Context | null, private idGen: () => number) {}
 
@@ -35,9 +42,35 @@ class Context {
 	}
 
 	public addGV(name: string, forcedId?: number) {
+		if (this.hasGV(name)) throw new Error(`Variable "${name}" already exists`);
 		this.gvs.push({ name: name, id: forcedId ?? this.idGen() });
 		return this.getGV(name);
 	}
+
+	public addIterator(unitList: string, name: string, backingGv: GV) {
+		if (this.hasIterator(name)) throw new Error(`Iterator "${name}" already exists`);
+		// const backingGv = this.addGV(`_iter_${name}`);
+		const iter: Iterator = { unitList, backingGv, name };
+		this.iterators.push(iter);
+		return iter;
+	}
+
+	public getIterator(name: string) {
+		const it = this.iterators.find(it => it.name === name);
+		// We don't check parent iterators as iters are always local
+		if (!it) throw new Error(`Iterator "${name}" not found`);
+		return it;
+	}
+
+	public hasIterator(name: string) {
+		return this.iterators.some(it => it.name === name);
+	}
+
+	public removeIterator(name: string) {
+		const idx = this.iterators.findIndex(it => it.name === name);
+		if (idx === -1) throw new Error(`Iterator "${name}" not found`);
+		this.iterators.splice(idx, 1);
+	}
 }
 
-export { Context, GV };
+export { Context, GV, Iterator };

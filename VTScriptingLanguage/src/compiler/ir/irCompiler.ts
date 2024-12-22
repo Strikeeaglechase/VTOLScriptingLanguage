@@ -1,5 +1,6 @@
 import { VTNode } from "../../vtsParser.js";
 import { BaseBlockKeys, ConditionalKeys, EventKeys, GVKeys } from "../../vtTypes.js";
+import { varIds } from "../compiler.js";
 import { VTSGenerator } from "../vtsGenerator.js";
 import { IR, IRArg, IRConditional, IRConditionalAction, IREvent, IREventList, IRSequence } from "./irGenerator.js";
 
@@ -28,7 +29,9 @@ class IRCompiler {
 
 	public compile() {
 		this.createGvs();
-		this.gen.stackOverflowExceptionObjective();
+		this.gen.exceptionObjective("Stack Overflow", varIds.stackOverflowFlag);
+		this.gen.exceptionObjective("Index Out of Bounds", varIds.indexOutOfBoundsFlag);
+
 		this.ir.sequences.forEach(sequence => this.compileSequence(sequence));
 		this.ir.conditionalActions.forEach(ca => this.compileConditionalAction(ca));
 

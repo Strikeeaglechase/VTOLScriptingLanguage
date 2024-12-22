@@ -13,8 +13,7 @@ define tl2: Unit = 3..5;
 forEach (targets as t) {
 	t.DestroySelf();
 
-	forEach (tl2 as t2LocalCtx) {
-		t2LocalCtx.DestroySelf();
-		
+	forEach (tl2 as t2) {
+		t2.DestroySelf();
 	}
 }

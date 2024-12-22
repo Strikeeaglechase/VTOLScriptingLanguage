@@ -1,7 +1,7 @@
 import { AST } from "../parser/ast.js";
 import { VTNode } from "../vtsParser.js";
 import { BaseBlockKeys, CompKeys, GVKeys } from "../vtTypes.js";
-import { Context, GV } from "./context.js";
+import { Context, GV, Iterator } from "./context.js";
 import { VTSGenerator } from "./vtsGenerator.js";
 
 export interface UnitListMethod {
@@ -18,11 +18,6 @@ export interface DefinedUnitList {
 	createdActions: UnitListMethod[];
 }
 
-export interface Iterator {
-	variable: string;
-	define: DefinedUnitList;
-}
-
 export interface RefVar {
 	name: string;
 	indexExpression: AST.AnyAST;
@@ -34,6 +29,7 @@ const vars = {
 	mathA: "c_mathA",
 	mathB: "c_mathB",
 	stackOverflowFlag: "c_stackOverflowFlag",
+	indexOutOfBoundsFlag: "c_indexOutOfBoundsFlag",
 	jumpFlag: "c_jumpFlag",
 	sp: "c_sp"
 };
@@ -44,8 +40,9 @@ const varIds: Record<keyof typeof vars, number> = {
 	mathB: idStart + 1,
 	result: idStart + 2,
 	stackOverflowFlag: idStart + 3,
-	jumpFlag: idStart + 4,
-	sp: idStart + 5
+	indexOutOfBoundsFlag: idStart + 4,
+	jumpFlag: idStart + 5,
+	sp: idStart + 6
 };
 
 const stackSize = 16;
@@ -79,7 +76,6 @@ class Compiler {
 	private _nextId = idStart + 10;
 
 	private defines: DefinedUnitList[] = [];
-	private localIters: Iterator[] = [];
 	private blockContextStack: VTNode[] = [];
 	private contextStack: Context[] = [];
 	private refVars: RefVar[] = [];
@@ -270,7 +266,9 @@ class Compiler {
 			this.makeVar(vars[key], varIds[key]);
 		}
 		this.createStack();
-		this.gen.stackOverflowExceptionObjective();
+		// this.gen.stackOverflowExceptionObjective();
+		this.gen.exceptionObjective("Stack Overflow", this.vn(vars.stackOverflowFlag));
+		this.gen.exceptionObjective("Index Out of Bounds", this.vn(vars.indexOutOfBoundsFlag));
 
 		this.ast.body.forEach(child => this.compileAst(child));
 
@@ -498,13 +496,29 @@ class Compiler {
 	private handleForEach(ast: AST.ForEach) {
 		const def = this.defines.find(d => d.name == ast.list.value);
 		if (!def) throw new Error(`No defined list "${ast.list.value}"`);
+		if (def.ids.length == 0) throw new Error(`Unit list "${ast.list.value}" is empty`);
 
-		const newIter: Iterator = { variable: ast.variable.value, define: def };
-		this.localIters.push(newIter);
+		const backingGv = this.makeVar(`_iter_${ast.variable.value}_${this.nextId()}`);
+		this.context.addIterator(def.name, ast.variable.value, backingGv);
+		const forDoneId = this.nextId();
+		const forDoneCond = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), forDoneId, "Equals"));
 
-		ast.body.forEach(child => this.compileAst(child));
+		const forBodySeq = this.gen.sequence("forEachBody");
+		this.add(this.gen.gvSet(backingGv.id, 0));
+		this.withContext(forBodySeq, () => {
+			ast.body.forEach(child => this.compileAst(child));
+			this.add(this.gen.gvIncDec(backingGv.id, 1, "IncrementValue"));
 
-		this.localIters = this.localIters.filter(it => it != newIter);
+			const cond = this.gen.gvComp(backingGv.id, def.ids.length, "Equals");
+			const continueAction = this.gen.callSequence(forBodySeq.getValue("id"));
+			const exitAction = this.gen.gvSet(this.vn(vars.jumpFlag), forDoneId);
+			this.add(this.gen.simpleConditional("forEachCheck", cond, exitAction, continueAction));
+		});
+
+		this.context.removeIterator(ast.variable.value);
+
+		this.add(this.gen.callSequence(forBodySeq.getValue("id")));
+		this.splitCurrentContext(forDoneCond);
 	}
 
 	private handleFor(ast: AST.For) {
@@ -575,7 +589,7 @@ class Compiler {
 
 		const elseBlock = new VTNode<"eventName">("ELSE_ACTIONS");
 		elseBlock.setValue("eventName", null);
-		elseBlock.addChild(this.gen.gvSet(this.vn(vars.stackOverflowFlag), 1));
+		elseBlock.addChild(this.gen.gvSet(this.vn(vars.indexOutOfBoundsFlag), 1));
 		baseBlock.addChild(elseBlock);
 
 		// const methodBlockSecondEventsParent = this.gen.eventParent(condActJumpFlagConditional);
@@ -590,13 +604,23 @@ class Compiler {
 	}
 
 	private handleMethodCall(ast: AST.MethodCall) {
-		const unitList = this.defines.find(d => d.name == ast.target.value);
+		let unitList = this.defines.find(d => d.name == ast.target.value);
+		const isIter = this.context.hasIterator(ast.target.value);
+
+		let iterator: Iterator = null;
+		if (isIter) {
+			iterator = this.context.getIterator(ast.target.value);
+			unitList = this.defines.find(d => d.name == iterator.unitList);
+		}
+
 		if (!unitList) throw new Error(`Unit list "${ast.target.value}" not found`);
 
 		let condActionId = unitList.createdActions.find(a => a.actionMethod == ast.method.value);
 		if (!condActionId) condActionId = this.createMethodCallAction(unitList, ast.method.value);
 
-		if (ast.indexer) {
+		if (iterator) {
+			this.add(this.gen.gvCopy(iterator.backingGv.id, this.vn(vars.result)));
+		} else if (ast.indexer) {
 			this.compileAst(ast.indexer);
 			this.pop();
 		} else {

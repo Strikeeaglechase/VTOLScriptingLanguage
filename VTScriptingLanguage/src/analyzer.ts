@@ -74,7 +74,7 @@ class Analyzer {
 				this.currentContext.addVar(ast.name.value);
 				break;
 
-			case AST.Type.FunctionDeclaration:
+			case AST.Type.FunctionDeclaration: {
 				const ctx = new AnalyzerContext(this.currentContext);
 				this.contexts.push(ctx);
 				this.contextRanges.push({ startLine: ast.line, startColumn: ast.column, endLine: ast.lineEnd, endColumn: ast.columnEnd, context: ctx });
@@ -82,10 +82,22 @@ class Analyzer {
 				ast.body.forEach(node => this.analyzeAst(node));
 				this.contexts.pop();
 				break;
+			}
 
 			case AST.Type.UnitDefine:
 				this.unitLists.push({ name: ast.name.value, type: ast.unitType.value });
 				break;
+
+			case AST.Type.ForEach: {
+				const ctx = new AnalyzerContext(this.currentContext);
+				// this.contexts.push(ctx);
+				ctx.addVar(ast.variable.value);
+				this.contextRanges.push({ startLine: ast.line, startColumn: ast.column, endLine: ast.lineEnd, endColumn: ast.columnEnd, context: ctx });
+				// console.log(`ForEach ${ast.variable.value} in ${ast.line}:${ast.column}-${ast.lineEnd}:${ast.columnEnd}`);
+				// this.contexts.pop();
+				// ast.body.forEach(node => this.analyzeAst(node));
+				break;
+			}
 		}
 	}
 
@@ -172,6 +184,10 @@ class Analyzer {
 			case AST.Type.FunctionDeclaration:
 				if (matchingAst.parameters.includes(token)) return SemanticTokenTypes.parameter;
 				return SemanticTokenTypes.function;
+			case AST.Type.ForEach:
+				return SemanticTokenTypes.variable;
+			// if (matchingAst.variable == token) return SemanticTokenTypes.variable;
+			// return SemanticTokenTypes.parameter;
 
 			default:
 				throw new Error(`Identifier semantics not implemented for ${matchingAst.type}`);

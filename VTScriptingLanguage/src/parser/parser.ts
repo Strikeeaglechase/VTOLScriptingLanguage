@@ -31,6 +31,7 @@ class Parser {
 	}
 
 	private parseAst(): AST.AnyAST {
+		if (this.errors.length > 50) return null;
 		const token = this.tokens.peek();
 		try {
 			let result: AST.AnyAST;

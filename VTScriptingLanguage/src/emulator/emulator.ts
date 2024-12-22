@@ -120,7 +120,7 @@ class Emulator {
 				throw new Error(`Unhandled event target type: ${event.getValue("targetType")}`);
 		}
 
-		this.checkStack();
+		this.checkExceptionFlags();
 	}
 
 	private async fireEvents(events: VTNode<EventTargetKeys>[], depth: number) {
@@ -356,11 +356,12 @@ class Emulator {
 		else this.waitForHaltSync();
 	}
 
-	private checkStack() {
-		const gv = this.getGvByName(vars.stackOverflowFlag);
-		if (gv.value) {
-			throw new Error("Stack overflow");
-		}
+	private checkExceptionFlags() {
+		const stackOverflow = this.getGvByName(vars.stackOverflowFlag);
+		const indexOob = this.getGvByName(vars.indexOutOfBoundsFlag);
+		if (stackOverflow.value && indexOob.value) throw new Error("Ya somehow caused both a stack overflow and an index out of bounds error at the same time");
+		if (stackOverflow.value) throw new Error("Stack overflow");
+		if (indexOob.value) throw new Error("Index out of bounds");
 	}
 
 	public getGvByName(name: string) {
@@ -368,7 +369,9 @@ class Emulator {
 	}
 
 	private getGvById(id: number) {
-		return this.gvs.find(gv => gv.id === id);
+		const gv = this.gvs.find(gv => gv.id === id);
+		if (!gv) throw new Error(`Could not find GV with ID ${id}`);
+		return gv;
 	}
 
 	private log(str: string) {
