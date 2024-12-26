@@ -1,12 +1,6 @@
 use indexmap::IndexMap;
 use regex::Regex;
-use std::{
-	collections::HashMap,
-	sync::{
-		atomic::{AtomicUsize, Ordering},
-		LazyLock,
-	},
-};
+use std::{fmt::Display, sync::LazyLock};
 
 use crate::line_scanner::LineScanner;
 
@@ -27,16 +21,71 @@ pub enum VTValue {
 	List(Vec<VTValue>),
 }
 
-static VTS_NODE_ID: AtomicUsize = AtomicUsize::new(0);
+impl VTValue {
+	pub fn as_number(&self) -> f32 {
+		match self {
+			VTValue::Number(n) => *n,
+			_ => panic!("Value is not a number"),
+		}
+	}
 
-#[derive(Debug, Clone)]
+	pub fn as_bool(&self) -> bool {
+		match self {
+			VTValue::Bool(b) => *b,
+			_ => panic!("Value is not a bool"),
+		}
+	}
+
+	pub fn as_vector3(&self) -> Vector3 {
+		match self {
+			VTValue::Vector3(v) => *v,
+			_ => panic!("Value is not a Vector3"),
+		}
+	}
+
+	pub fn as_list(&self) -> &Vec<VTValue> {
+		match self {
+			VTValue::List(l) => l,
+			_ => panic!("Value is not a list"),
+		}
+	}
+
+	pub fn as_string(&self) -> &String {
+		match self {
+			VTValue::String(s) => s,
+			_ => panic!("Value is not a string"),
+		}
+	}
+}
+
+impl Display for VTValue {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			VTValue::Null => write!(f, "null"),
+			VTValue::String(s) => write!(f, "{}", s),
+			VTValue::Number(n) => write!(f, "{}", n),
+			VTValue::Bool(b) => write!(f, "{}", b),
+			VTValue::Vector3(v) => write!(f, "({}, {}, {})", v.x, v.y, v.z),
+			VTValue::List(l) => {
+				let mut result = "".to_string();
+				for item in l {
+					result.push_str(&format!("{}, ", item));
+				}
+
+				write!(f, "[{}]", result)
+			}
+		}
+	}
+}
+
+// static VTS_NODE_ID: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(Debug)]
 pub struct VTNode {
 	pub name: String,
+	empty_string: String,
 	pub values: IndexMap<String, VTValue>,
 	pub children: Vec<VTNode>,
-
-	pub id: usize,
-	child_map: HashMap<usize, Vec<usize>>,
 }
 
 impl VTNode {
@@ -45,9 +94,9 @@ impl VTNode {
 			name: name.to_string(),
 			values: IndexMap::new(),
 			children: Vec::new(),
-
-			id: VTS_NODE_ID.fetch_add(1, Ordering::SeqCst),
-			child_map: HashMap::new(),
+			empty_string: "".to_string(),
+			//id: VTS_NODE_ID.fetch_add(1, Ordering::SeqCst),
+			//child_map: HashMap::new(),
 		}
 	}
 
@@ -55,38 +104,43 @@ impl VTNode {
 		self.values.get(key).expect(format!("Key {} not present in node {}", key, self.name).as_str())
 	}
 
+	pub fn has_value(&self, key: &str) -> bool {
+		self.values.contains_key(key)
+	}
+
 	pub fn get_string(&self, key: &str) -> &String {
 		match self.get_value(key) {
 			VTValue::String(s) => s,
-			_ => panic!("Value for key {} is not a string", key),
+			VTValue::Null => &self.empty_string,
+			_ => panic!("Value for key \"{}\" is not a string, value: {:?}", key, self.get_value(key)),
 		}
 	}
 
 	pub fn get_number(&self, key: &str) -> f32 {
 		match self.get_value(key) {
 			VTValue::Number(n) => *n,
-			_ => panic!("Value for key {} is not a number", key),
+			_ => panic!("Value for key \"{}\" is not a number, value: {:?}", key, self.get_value(key)),
 		}
 	}
 
 	pub fn get_bool(&self, key: &str) -> bool {
 		match self.get_value(key) {
 			VTValue::Bool(b) => *b,
-			_ => panic!("Value for key {} is not a bool", key),
+			_ => panic!("Value for key \"{}\" is not a bool, value: {:?}", key, self.get_value(key)),
 		}
 	}
 
 	pub fn get_vector3(&self, key: &str) -> Vector3 {
 		match self.get_value(key) {
 			VTValue::Vector3(v) => *v,
-			_ => panic!("Value for key {} is not a Vector3", key),
+			_ => panic!("Value for key \"{}\" is not a Vector3, value: {:?}", key, self.get_value(key)),
 		}
 	}
 
 	pub fn get_list(&self, key: &str) -> &Vec<VTValue> {
 		match self.get_value(key) {
 			VTValue::List(l) => l,
-			_ => panic!("Value for key {} is not a list", key),
+			_ => panic!("Value for key \"{}\" is not a list, value: {:?}", key, self.get_value(key)),
 		}
 	}
 
@@ -100,6 +154,14 @@ impl VTNode {
 		}
 
 		self.values.insert(key.to_string(), value);
+	}
+
+	pub fn add_child(&mut self, child: VTNode) {
+		self.children.push(child);
+	}
+
+	pub fn maybe_get_child(&self, name: &str) -> Option<&VTNode> {
+		self.children.iter().find(|c| c.name == name)
 	}
 
 	pub fn get_child(&self, name: &str) -> &VTNode {
@@ -136,53 +198,6 @@ impl VTNode {
 
 		result
 	}
-
-	fn get_child_path(&self, child_id: usize) -> Option<Vec<usize>> {
-		for (idx, child) in self.children.iter().enumerate() {
-			if child.id == child_id {
-				return Some(vec![idx]);
-			}
-
-			if let Some(mut path) = child.get_child_path(child_id) {
-				path.insert(0, idx);
-				return Some(path);
-			}
-		}
-
-		None
-	}
-
-	fn resolve_child_path(&self, path: &[usize]) -> &VTNode {
-		let mut cur = self;
-		for &child_idx in path.iter() {
-			cur = &cur.children[child_idx];
-		}
-
-		cur
-	}
-
-	pub fn init_child_maps(&mut self) {
-		self.child_map.clear();
-
-		let child_ids = self.get_all_children().into_iter().map(|c| c.id).collect::<Vec<usize>>();
-		child_ids.into_iter().for_each(|child_id| {
-			let path = self
-				.get_child_path(child_id)
-				.expect(format!("Child with id {} not present in node {}", child_id, self.name).as_str());
-
-			self.child_map.insert(child_id, path);
-		});
-
-		self.children.iter_mut().for_each(|c| c.init_child_maps());
-	}
-
-	pub fn get_child_by_id(&self, id: usize) -> &VTNode {
-		if let Some(child) = self.child_map.get(&id) {
-			return self.resolve_child_path(child);
-		}
-
-		panic!("Child with id {} not present in node {}", id, self.name);
-	}
 }
 
 static VEC_REGEX: LazyLock<Regex> = std::sync::LazyLock::new(|| Regex::new(r"^\([-\d.E]+, [-\d.E]+, [-\d.E]+\)$").unwrap());
@@ -214,7 +229,7 @@ fn parse_vt_value(value: &str) -> VTValue {
 	}
 
 	if value.contains(";") {
-		return VTValue::List(value.split(";").map(|v| parse_vt_value(v)).collect());
+		return VTValue::List(value.split_terminator(";").map(|v| parse_vt_value(v)).collect());
 	}
 
 	VTValue::String(value.to_string())
@@ -230,6 +245,7 @@ fn process_value_line(line: &str) -> (String, VTValue) {
 
 fn read_node(scanner: &mut LineScanner) -> VTNode {
 	let mut node = VTNode::new(scanner.read_line());
+
 	scanner.read_line();
 
 	while !scanner.eof() && scanner.peak_line().contains("=") {
@@ -239,7 +255,7 @@ fn read_node(scanner: &mut LineScanner) -> VTNode {
 
 	while !scanner.eof() && !scanner.peak_line().contains("}") {
 		let child = read_node(scanner);
-		node.children.push(child);
+		node.add_child(child);
 	}
 
 	scanner.read_line();
