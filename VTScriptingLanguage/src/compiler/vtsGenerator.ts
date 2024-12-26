@@ -34,6 +34,45 @@ function Track(target: Object, propertyKey: string, descriptor: PropertyDescript
 	};
 }
 
+/*
+BASE_BLOCK
+{
+	blockName = 
+	blockId = 1
+	CONDITIONAL
+	{
+		id = 0
+		outputNodePos = (165.9287, 33.08698, 0)
+		root = 0
+		COMP
+		{
+			id = 0
+			type = SCCUnit
+			uiPos = (-251.8561, 153.5828, 0)
+			unit = 1
+			methodName = SC_HealthLevel
+			isNot = False
+			methodParameters
+			{
+				value = Greater_Than
+			}
+			methodParameters
+			{
+				value = 5
+			}
+		}
+	}
+	ACTIONS
+	{
+		eventName = 
+	}
+	ELSE_ACTIONS
+	{
+		eventName = 
+	}
+}
+	*/
+
 class VTSGenerator {
 	public nodeInfos: NodeInfo[] = [];
 
@@ -394,6 +433,44 @@ class VTSGenerator {
 
 		const conditionalsParent = this.vts.getNode("Conditionals");
 		conditionalsParent.addChild(condition);
+	}
+
+	@Track
+	public displayMessage(message: string) {
+		const eventTarget = new VTNode<EventTargetKeys>("EventTarget");
+		eventTarget.setValue("targetType", "System");
+		eventTarget.setValue("targetID", 1);
+		eventTarget.setValue("eventName", "Display Message");
+		eventTarget.setValue("methodName", "DisplayMessage");
+
+		const messageParamInfo = new VTNode<ParamInfoKeys>("ParamInfo");
+		messageParamInfo.setValue("type", "System.String");
+		messageParamInfo.setValue("value", message);
+		messageParamInfo.setValue("name", "Text");
+		eventTarget.addChild(messageParamInfo);
+
+		const paramAtterInfo1 = new VTNode<ParamAttrInfoKeys>("ParamAttrInfo");
+		paramAtterInfo1.setValue("type", "TextInputModes");
+		paramAtterInfo1.setValue("data", "MultiLine");
+		messageParamInfo.addChild(paramAtterInfo1);
+
+		const paramAtterInfo2 = new VTNode<ParamAttrInfoKeys>("ParamAttrInfo");
+		paramAtterInfo2.setValue("type", "System.Int32");
+		paramAtterInfo2.setValue("data", message.length);
+		messageParamInfo.addChild(paramAtterInfo2);
+
+		const durationParamInfo = new VTNode<ParamInfoKeys>("ParamInfo");
+		durationParamInfo.setValue("type", "System.Single");
+		durationParamInfo.setValue("value", 1);
+		durationParamInfo.setValue("name", "Duration");
+		eventTarget.addChild(durationParamInfo);
+
+		const paramAtterInfo3 = new VTNode<ParamAttrInfoKeys>("ParamAttrInfo");
+		paramAtterInfo3.setValue("type", "MinMax");
+		paramAtterInfo3.setValue("data", "(0,9999)");
+		durationParamInfo.addChild(paramAtterInfo3);
+
+		return eventTarget;
 	}
 
 	@Track

@@ -79,11 +79,12 @@ impl Display for VTValue {
 }
 
 // static VTS_NODE_ID: AtomicUsize = AtomicUsize::new(0);
+static EMPTY_STRING: String = String::new();
 
 #[derive(Debug)]
 pub struct VTNode {
 	pub name: String,
-	empty_string: String,
+	// empty_string: String,
 	pub values: IndexMap<String, VTValue>,
 	pub children: Vec<VTNode>,
 }
@@ -94,7 +95,7 @@ impl VTNode {
 			name: name.to_string(),
 			values: IndexMap::new(),
 			children: Vec::new(),
-			empty_string: "".to_string(),
+			// empty_string: "".to_string(),
 			//id: VTS_NODE_ID.fetch_add(1, Ordering::SeqCst),
 			//child_map: HashMap::new(),
 		}
@@ -111,7 +112,7 @@ impl VTNode {
 	pub fn get_string(&self, key: &str) -> &String {
 		match self.get_value(key) {
 			VTValue::String(s) => s,
-			VTValue::Null => &self.empty_string,
+			VTValue::Null => &EMPTY_STRING,
 			_ => panic!("Value for key \"{}\" is not a string, value: {:?}", key, self.get_value(key)),
 		}
 	}

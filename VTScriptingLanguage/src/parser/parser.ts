@@ -179,6 +179,8 @@ class Parser {
 				return this.handleIfStatement();
 			case "return":
 				return this.handleReturn();
+			case "declare":
+				return this.handleExternalDeclaration();
 			default:
 				throw new Error(`Unexpected keyword ${keyword.value} at ${keyword.line}:${keyword.column}`);
 		}
@@ -626,6 +628,31 @@ class Parser {
 		};
 
 		return ifStatement;
+	}
+
+	private handleExternalDeclaration() {
+		const declare = this.tokens.next();
+		const name = this.tokens.next();
+		this.consumeOrThrow(":");
+		const type = this.tokens.next();
+		this.consumeOrThrow("=");
+		const idLiteral = this.tokens.next();
+		const id = parseInt(idLiteral.value);
+		if (isNaN(id)) throw new Error(`Invalid numeric ${idLiteral.value} at ${idLiteral.line}:${idLiteral.column}`);
+
+		const externalDeclaration: AST.Declare = {
+			type: AST.Type.Declare,
+			name: name,
+			id: id,
+			declareType: type,
+
+			line: declare.line,
+			column: declare.column,
+			lineEnd: idLiteral.line,
+			columnEnd: idLiteral.column + idLiteral.value.length
+		};
+
+		return externalDeclaration;
 	}
 
 	private maybeConsume(value: string) {

@@ -42,6 +42,7 @@ class IRCompiler {
 		if (arg.type == "value") return arg.value;
 
 		const args = arg.value.args.map(a => this.evalArg(a));
+		if (!this.gen[arg.value.method]) throw new Error(`Method ${arg.value.method} not found in VTSGenerator`);
 		return this.gen[arg.value.method](...args);
 	}
 
@@ -75,6 +76,7 @@ class IRCompiler {
 	private compileEvents(events: IREvent[], parent: VTNode) {
 		events.forEach(event => {
 			const args = event.args.map(a => this.evalArg(a));
+			if (!this.gen[event.method]) throw new Error(`Method ${event.method} not found in VTSGenerator`);
 			const eventNode = this.gen[event.method](...args);
 			parent.addChild(eventNode);
 		});
@@ -84,6 +86,7 @@ class IRCompiler {
 		if (!conditional.method) throw new Error(`Multimethod not implemented yet`);
 
 		const args = conditional.args.map(a => this.evalArg(a));
+		if (!this.gen[conditional.method]) throw new Error(`Method ${conditional.method} not found in VTSGenerator`);
 		const cond = this.gen[conditional.method](...args);
 
 		this.vts.getNode("Conditionals").addChild(cond);

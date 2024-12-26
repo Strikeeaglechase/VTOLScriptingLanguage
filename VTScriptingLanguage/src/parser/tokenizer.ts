@@ -3,7 +3,7 @@ import { PosChar } from "./preprocessor.js";
 
 const identifierStartChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 
-const keywords = ["define", "forEach", "for", "while", "if", "fn", "let", "ref", "as", "return"];
+const keywords = ["define", "forEach", "for", "while", "if", "fn", "let", "ref", "as", "return", "declare"];
 const operands = ["+", "-", "*", "/", "%", "|", "&", "||", "&&", "!", "==", "!=", "<", ">", "<=", ">=", "..", "+=", "-="];
 const symbols = ["(", ")", "[", "]", "{", "}", ";", ",", ".", "=", ":"];
 

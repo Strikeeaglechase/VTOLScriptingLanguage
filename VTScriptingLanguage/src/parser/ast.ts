@@ -23,7 +23,8 @@ export namespace AST {
 		For = "for",
 		While = "while",
 		Return = "return",
-		Comment = "Comment"
+		Comment = "Comment",
+		Declare = "declare"
 	}
 
 	type WalkHandlersMap = { [K in AnyAST["type"]]: (node: Extract<AnyAST, { type: K }>, visitor: (node: AnyAST) => void) => void };
@@ -68,7 +69,8 @@ export namespace AST {
 		[Type.LiteralNumber]: () => {},
 		[Type.LiteralString]: () => {},
 		[Type.Semi]: () => {},
-		[Type.Comment]: () => {}
+		[Type.Comment]: () => {},
+		[Type.Declare]: () => {}
 	};
 
 	export const walk = (node: AnyAST, visitor: (node: AnyAST, depth: number) => void, depth = 0) => {
@@ -241,6 +243,13 @@ export namespace AST {
 		value: Token;
 	}
 
+	export interface Declare extends Node {
+		type: Type.Declare;
+		name: Token;
+		declareType: Token;
+		id: number;
+	}
+
 	export type AnyAST =
 		| Program
 		| BinaryOperation
@@ -263,7 +272,8 @@ export namespace AST {
 		| LiteralNumber
 		| LiteralString
 		| Semi
-		| Comment;
+		| Comment
+		| Declare;
 }
 
 export type Positional = { line: number; column: number; lineEnd?: number; columnEnd?: number };

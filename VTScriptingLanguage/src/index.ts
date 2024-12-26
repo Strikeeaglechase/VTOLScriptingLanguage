@@ -16,6 +16,7 @@ const sourceVts = fs.readFileSync(sourceVtsPath, "utf8");
 const debugSymbolsMatch = source.match(/\/\/ ?Debug:(.+)/i);
 const debugSymbols = debugSymbolsMatch ? debugSymbolsMatch[1].split(",").map(s => s.trim()) : [];
 
+const compileStart = Date.now();
 const linker = new Linker();
 linker.enableDebugIn("../debug/");
 const { irCompiledVts } = linker.compile(source, sourceVts);
@@ -23,6 +24,8 @@ if (linker.hasErrors) {
 	console.log(chalk.red(`Compilation failed with ${linker.parserErrors.length} parse errors and ${linker.compilerErrors.length} linker errors`));
 	process.exit(1);
 }
+
+console.log(`Compilation successful in ${Date.now() - compileStart}ms`);
 
 irCompiledVts.setValue("scenarioID", "output", true);
 irCompiledVts.setValue("campaignOrderIdx", 1, true);

@@ -325,6 +325,9 @@ class Compiler {
 				case AST.Type.UnaryOperation:
 					this.handleUnaryOperation(ast);
 					break;
+				case AST.Type.Declare:
+					this.handleExternalDeclaration(ast);
+					break;
 				case AST.Type.Semi:
 				case AST.Type.Comment:
 					break;
@@ -356,6 +359,17 @@ class Compiler {
 	private handleVarReference(ast: AST.VariableReference) {
 		this.add(this.gen.gvCopy(this.vn(ast.name.value), this.vn(vars.result)));
 		this.push();
+	}
+
+	private handleExternalDeclaration(ast: AST.Declare) {
+		switch (ast.declareType.value) {
+			case "GV":
+				// Make var would produce the GV VTS, however Declare is telling the compiler that it already exists
+				this.context.addGV(ast.name.value, ast.id);
+				break;
+			default:
+				throw new Error(`Unhandled declare type: ${ast.declareType.value}`);
+		}
 	}
 
 	private handleLiteralNumber(ast: AST.LiteralNumber) {
@@ -668,6 +682,8 @@ class Compiler {
 	}
 
 	private handleFunctionCall(ast: AST.FunctionCall) {
+		// Probably better as a proper "builtinFunction" system, but don't want to deal with having to publicize a bunch of stuff
+		if (ast.target.value == "print") return this.handlePrintFunctionCall(ast);
 		const fn = this.functions.find(f => f.name == ast.target.value);
 		if (!fn) throw new Error(`Function "${ast.target.value}" not found`);
 
@@ -683,6 +699,13 @@ class Compiler {
 
 		this.add(this.gen.callSequence(fn.id));
 		this.splitCurrentContext(fn.jumpFlagId);
+	}
+
+	private handlePrintFunctionCall(ast: AST.FunctionCall) {
+		const message = ast.arguments[0];
+		if (message.type != AST.Type.LiteralString) throw new Error("print() only supports string literals");
+
+		this.add(this.gen.displayMessage(message.value));
 	}
 
 	private handleUnitDefine(ast: AST.UnitDefine) {

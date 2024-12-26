@@ -33,7 +33,7 @@ class UnitTester {
 				await this.runTest(f);
 			} catch (e) {
 				console.log(`Test ${f} failed with error ${e}`);
-				console.log(e.stack);
+				// console.log(e.stack);
 			}
 		});
 		await Promise.all(proms);

@@ -143,6 +143,7 @@ class Emulator {
 				case "GlobalValue":
 					const gv = this.getGvById(paramInfo.getValue("value"));
 					return `${gv.name}(${gv.value})`;
+				case "System.String":
 				case "System.Single":
 					return paramInfo.getValue("value");
 				case "ConditionalActionReference":
@@ -167,6 +168,7 @@ class Emulator {
 				case "GlobalValue":
 					return this.getGvById(paramInfo.getValue("value"));
 				case "System.Single":
+				case "System.String":
 					return paramInfo.getValue("value");
 				case "ConditionalActionReference":
 					return this.vts.getAllChildrenWithName("ConditionalAction").find(ca => ca.getValue("id") === paramInfo.getValue("value"));
@@ -179,48 +181,67 @@ class Emulator {
 	private handleSystemEvent(event: VTNode<EventTargetKeys>, depth: number) {
 		const targetId = event.getValue("targetID");
 
-		if (targetId == 0 && event.getValue("methodName") == "FireConditionalAction") {
-			const [ca] = this.parseEventArgs(event) as [VTNode<ConditionalActionKeys>];
-			this.handleConditionalAction(ca, depth + 1);
-			return;
-		}
+		switch (targetId) {
+			case 0:
+				switch (event.getValue("methodName")) {
+					case "FireConditionalAction":
+						const [ca] = this.parseEventArgs(event) as [VTNode<ConditionalActionKeys>];
+						this.handleConditionalAction(ca, depth + 1);
+						break;
+					default:
+						throw new Error(`Unhandled system-0 event: ${event.getValue("methodName")}`);
+				}
+				break;
 
-		if (targetId != 2) throw new Error(`Unhandled system event target ID: ${targetId}`);
+			case 1:
+				switch (event.getValue("methodName")) {
+					case "DisplayMessage":
+						console.log(`Print: ${event.getNode("ParamInfo").getValue("value")}`);
+						break;
+					default:
+						throw new Error(`Unhandled system-1 event: ${event.getValue("methodName")}`);
+				}
+				break;
 
-		switch (event.getValue("methodName")) {
-			case "SetValue": {
-				const [gv, value] = this.parseEventArgs(event) as [GV, number];
-				gv.value = value;
-				break;
-			}
-			case "IncrementValue": {
-				const [gv, increment] = this.parseEventArgs(event) as [GV, number];
-				gv.value += increment;
-				break;
-			}
-			case "DecrementValue": {
-				const [gv, decrement] = this.parseEventArgs(event) as [GV, number];
-				gv.value -= decrement;
-				break;
-			}
-			case "CopyValue": {
-				const [source, destination] = this.parseEventArgs(event) as [GV, GV];
-				destination.value = source.value;
-				break;
-			}
-			case "AddValues": {
-				const [source, destination] = this.parseEventArgs(event) as [GV, GV];
-				destination.value += source.value;
-				break;
-			}
-			case "MultiplyValues": {
-				const [source, destination] = this.parseEventArgs(event) as [GV, GV];
-				destination.value *= source.value;
-				break;
-			}
+			case 2:
+				switch (event.getValue("methodName")) {
+					case "SetValue": {
+						const [gv, value] = this.parseEventArgs(event) as [GV, number];
+						gv.value = value;
+						break;
+					}
+					case "IncrementValue": {
+						const [gv, increment] = this.parseEventArgs(event) as [GV, number];
+						gv.value += increment;
+						break;
+					}
+					case "DecrementValue": {
+						const [gv, decrement] = this.parseEventArgs(event) as [GV, number];
+						gv.value -= decrement;
+						break;
+					}
+					case "CopyValue": {
+						const [source, destination] = this.parseEventArgs(event) as [GV, GV];
+						destination.value = source.value;
+						break;
+					}
+					case "AddValues": {
+						const [source, destination] = this.parseEventArgs(event) as [GV, GV];
+						destination.value += source.value;
+						break;
+					}
+					case "MultiplyValues": {
+						const [source, destination] = this.parseEventArgs(event) as [GV, GV];
+						destination.value *= source.value;
+						break;
+					}
 
+					default:
+						throw new Error(`Unhandled system event method name: ${event.getValue("methodName")}`);
+				}
+				break;
 			default:
-				throw new Error(`Unhandled system event method name: ${event.getValue("methodName")}`);
+				throw new Error(`Unhandled system event target ID: ${targetId}`);
 		}
 	}
 
