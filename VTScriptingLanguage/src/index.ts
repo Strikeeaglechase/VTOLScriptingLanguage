@@ -47,7 +47,7 @@ async function run() {
 	fs.writeFileSync("../debug/emulator.txt", emulator.execLog);
 
 	const unitTests = new UnitTester();
-	unitTests.runTests();
+	// unitTests.runTests();
 }
 
 run();

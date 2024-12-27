@@ -12,6 +12,7 @@ interface GV {
 }
 
 const useAsync = false;
+const SCCUNIT_COND_RESULT = true;
 
 class Emulator {
 	private gvs: GV[] = [];
@@ -289,6 +290,9 @@ class Emulator {
 			case "SCCAnd":
 				const andChildren = (comp.getValue("factors") as number[]).map(f => allComps.find(c => c.getValue("id") == f));
 				return andChildren.every(c => this.evaluateComp(c, allComps));
+			case "SCCUnit":
+				console.log(`SCCUnit ${comp.getValue("unit")}.${comp.getValue("methodName")}()`);
+				return SCCUNIT_COND_RESULT;
 			default:
 				throw new Error(`Unhandled conditional type: ${comp.getValue("type")}`);
 		}

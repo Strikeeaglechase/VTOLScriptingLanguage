@@ -1,11 +1,12 @@
 import { VTNode } from "../../vtsParser.js";
 import { NodeInfo } from "../vtsGenerator.js";
 
-type IRArg = { type: "node"; value: IREvent } | { type: "value"; value: any };
+type IRArg = { type: "node"; value: IREvent } | { type: "value"; value: any } | { type: "array"; value: IRArg[] };
 
 interface IREvent {
 	method: string;
 	args: IRArg[];
+	ids: number[];
 }
 
 interface IREventList {
@@ -54,7 +55,11 @@ class IRGenerator {
 		const argAsNodeInfo = this.nodeInfos.find(n => n.result == arg);
 		if (argAsNodeInfo) {
 			const args = argAsNodeInfo.arguments.map(a => this.parseArg(a));
-			return { type: "node", value: { method: argAsNodeInfo.methodName, args: args } };
+			return { type: "node", value: { method: argAsNodeInfo.methodName, args: args, ids: argAsNodeInfo.ids } };
+		}
+
+		if (Array.isArray(arg)) {
+			return { type: "array", value: arg.map(a => this.parseArg(a)) };
 		}
 
 		return { type: "value", value: arg };
@@ -82,10 +87,10 @@ class IRGenerator {
 		return events.map(event => {
 			const nodeInfo = this.nodeInfos.find(n => n.result == event);
 			if (!nodeInfo) {
-				return { method: "ERR_UNKNOWN", args: [] };
+				return { method: "ERR_UNKNOWN", args: [], ids: [] };
 			} else {
 				const args = nodeInfo.arguments.map(a => this.parseArg(a));
-				return { method: nodeInfo.methodName, args: args };
+				return { method: nodeInfo.methodName, args: args, ids: nodeInfo.ids };
 			}
 		});
 	}
@@ -180,26 +185,33 @@ class IRGenerator {
 	}
 
 	private static stringifyArg(arg: IRArg, ir: IR) {
-		if (arg.type == "value") {
-			if (typeof arg.value == "number" && arg.value >= 10000) {
-				const seqRef = ir.sequences.find(s => s.id == arg.value);
-				if (seqRef) {
-					return `seq_${seqRef.name}_${seqRef.id}`;
+		switch (arg.type) {
+			case "value": {
+				if (typeof arg.value == "number" && arg.value >= 10000) {
+					const seqRef = ir.sequences.find(s => s.id == arg.value);
+					if (seqRef) {
+						return `seq_${seqRef.name}_${seqRef.id}`;
+					}
+					const cActRef = ir.conditionalActions.find(ca => ca.id == arg.value);
+					if (cActRef) {
+						return `cact_${cActRef.name}_${cActRef.id}`;
+					}
+					const gvRef = ir.gvs.find(gv => gv.id == arg.value);
+					if (gvRef) {
+						return gvRef.name;
+					}
 				}
-				const cActRef = ir.conditionalActions.find(ca => ca.id == arg.value);
-				if (cActRef) {
-					return `cact_${cActRef.name}_${cActRef.id}`;
-				}
-				const gvRef = ir.gvs.find(gv => gv.id == arg.value);
-				if (gvRef) {
-					return gvRef.name;
-				}
+				return JSON.stringify(arg.value);
 			}
-
-			return JSON.stringify(arg.value);
+			case "node": {
+				return this.stringifyEvent(arg.value, ir);
+			}
+			case "array": {
+				return `[${arg.value.map(a => this.stringifyArg(a, ir)).join(", ")}]`;
+			}
+			default:
+				throw new Error(`Invalid IRArg type: ${arg}`);
 		}
-
-		return this.stringifyEvent(arg.value, ir);
 	}
 
 	private static stringifyEvent(event: IREvent, ir: IR) {

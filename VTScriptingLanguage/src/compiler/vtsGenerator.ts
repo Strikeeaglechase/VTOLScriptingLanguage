@@ -1,4 +1,4 @@
-import { VTNode } from "../vtsParser.js";
+import { VTNode, VTValue } from "../vtsParser.js";
 import {
 	BaseBlockKeys,
 	CompKeys,
@@ -17,18 +17,21 @@ interface NodeInfo {
 	methodName: string;
 	arguments: any[];
 	result: VTNode;
+	ids: number[];
 }
 
 function Track(target: Object, propertyKey: string, descriptor: PropertyDescriptor) {
 	const orgFn = descriptor.value as Function;
-	descriptor.value = function (...args: any[]) {
+	descriptor.value = function (this: VTSGenerator, ...args: any[]) {
 		// console.log(propertyKey, args)
 		const result = orgFn.apply(this, args);
-		this["nodeInfos"].push({
+		this.nodeInfos.push({
 			methodName: propertyKey,
 			arguments: args,
-			result: result
+			result: result,
+			ids: this._consumedIds
 		});
+		this._consumedIds = [];
 
 		return result;
 	};
@@ -75,8 +78,16 @@ BASE_BLOCK
 
 class VTSGenerator {
 	public nodeInfos: NodeInfo[] = [];
+	public _consumedIds: number[] = [];
+	private nextId: () => number;
 
-	constructor(private nextId: () => number, private vts: VTNode) {}
+	constructor(idGenerator: () => number, private vts: VTNode) {
+		this.nextId = () => {
+			const id = idGenerator();
+			this._consumedIds.push(id);
+			return id;
+		};
+	}
 
 	@Track
 	public sequence(name: string, addToSeqList = true, withBaseEvent = true) {
@@ -142,26 +153,24 @@ class VTSGenerator {
 	}
 
 	@Track
-	public unitComp(unitId: number, method: string, negated: boolean) {
-		const comp = new VTNode<CompKeys>("COMP");
-		comp.setValue("id", this.nextId());
-		comp.setValue("type", "SCCUnit");
-		comp.setValue("uiPos", { x: 0, y: 0, z: 0 });
-		comp.setValue("unit", unitId);
-		comp.setValue("methodName", method);
-		comp.setValue("methodParameters", null);
-		comp.setValue("isNot", negated);
-
-		return comp;
-	}
-
-	@Track
 	public conditionalWithCondition(cond: VTNode<CompKeys>) {
 		const conditional = new VTNode<ConditionalKeys>("CONDITIONAL");
 		conditional.setValue("id", this.nextId());
 		conditional.setValue("outputNodePos", { x: 0, y: 0, z: 0 });
 		conditional.setValue("root", cond.getValue("id"));
 		conditional.addChild(cond);
+
+		return conditional;
+	}
+
+	@Track
+	public conditionalWithManyConditions(rootId: number, conds: VTNode<CompKeys>[]) {
+		const conditional = new VTNode<ConditionalKeys>("CONDITIONAL");
+		conditional.setValue("id", this.nextId());
+		conditional.setValue("outputNodePos", { x: 0, y: 0, z: 0 });
+		conditional.setValue("root", rootId);
+
+		conds.forEach(cond => conditional.addChild(cond));
 
 		return conditional;
 	}
@@ -312,6 +321,28 @@ class VTSGenerator {
 		conditional.addChild(lessThanZero);
 
 		return conditional;
+	}
+
+	@Track
+	public compOr(conds: number[]) {
+		const or = new VTNode<CompKeys>("COMP");
+		or.setValue("id", this.nextId());
+		or.setValue("type", "SCCOr");
+		or.setValue("uiPos", { x: 0, y: 0, z: 0 });
+		or.setValue("factors", conds);
+
+		return or;
+	}
+
+	@Track
+	public compAnd(conds: number[]) {
+		const and = new VTNode<CompKeys>("COMP");
+		and.setValue("id", this.nextId());
+		and.setValue("type", "SCCAnd");
+		and.setValue("uiPos", { x: 0, y: 0, z: 0 });
+		and.setValue("factors", conds);
+
+		return and;
 	}
 
 	@Track
@@ -483,6 +514,30 @@ class VTSGenerator {
 		eventTarget.setValue("altTargetIdx", -2);
 
 		return eventTarget;
+	}
+
+	@Track
+	public unitComp(method: string, unitId: number, negated: boolean) {
+		const comp = new VTNode<CompKeys>("COMP");
+		comp.setValue("id", this.nextId());
+		comp.setValue("type", "SCCUnit");
+		comp.setValue("uiPos", { x: 0, y: 0, z: 0 });
+		comp.setValue("unit", unitId);
+		comp.setValue("methodName", method);
+		comp.setValue("methodParameters", null);
+		comp.setValue("isNot", negated);
+
+		return comp;
+	}
+
+	@Track
+	public paramInfo(type: string, value: VTValue, name: string) {
+		const paramInfo = new VTNode<ParamInfoKeys>("ParamInfo");
+		paramInfo.setValue("type", type);
+		paramInfo.setValue("value", value);
+		paramInfo.setValue("name", name);
+
+		return paramInfo;
 	}
 }
 

@@ -40,9 +40,11 @@ class IRCompiler {
 
 	private evalArg(arg: IRArg) {
 		if (arg.type == "value") return arg.value;
+		if (arg.type == "array") return arg.value.map(a => this.evalArg(a));
 
 		const args = arg.value.args.map(a => this.evalArg(a));
 		if (!this.gen[arg.value.method]) throw new Error(`Method ${arg.value.method} not found in VTSGenerator`);
+		this.prime(...arg.value.ids);
 		return this.gen[arg.value.method](...args);
 	}
 

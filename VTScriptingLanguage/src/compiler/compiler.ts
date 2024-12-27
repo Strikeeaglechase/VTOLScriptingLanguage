@@ -2,6 +2,7 @@ import { AST } from "../parser/ast.js";
 import { VTNode } from "../vtsParser.js";
 import { BaseBlockKeys, CompKeys, GVKeys } from "../vtTypes.js";
 import { Context, GV, Iterator } from "./context.js";
+import { loadGameTypes } from "./gameTypes.js";
 import { VTSGenerator } from "./vtsGenerator.js";
 
 export interface UnitListMethod {
@@ -71,6 +72,7 @@ interface CompilerError {
 	node: AST.AnyAST;
 }
 
+const gameTypes = loadGameTypes();
 class Compiler {
 	private vts: VTNode;
 	private _nextId = idStart + 10;
@@ -563,15 +565,11 @@ class Compiler {
 	}
 
 	private createMethodCallAction(unitList: DefinedUnitList, method: string) {
-		// const methodSeq = this.gen.sequence(method);
 		const methodCondAction = this.gen.conditionalAction(method);
 
-		const jumpFlagValue = this.nextId();
 		const condActionJumpFlagValue = this.nextId();
 		const condId = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), condActionJumpFlagValue, "Equals"));
-		const condActJumpFlagConditional = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), jumpFlagValue, "Equals"));
 
-		const setJumpFlag = this.gen.gvSet(this.vn(vars.jumpFlag), jumpFlagValue);
 		const setCondJumpFlag = this.gen.gvSet(this.vn(vars.jumpFlag), condActionJumpFlagValue);
 
 		const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.result), -1, "Equals"));
@@ -606,12 +604,65 @@ class Compiler {
 		elseBlock.addChild(this.gen.gvSet(this.vn(vars.indexOutOfBoundsFlag), 1));
 		baseBlock.addChild(elseBlock);
 
-		// const methodBlockSecondEventsParent = this.gen.eventParent(condActJumpFlagConditional);
-		// methodSeq.addChild(methodBlockSecondEventsParent);
-		// const methodBlockSecondEvents = methodBlockSecondEventsParent.getNode("EventInfo");
-		// methodBlockSecondEvents.addChild(setJumpFlag);
-
 		const ulMethod: UnitListMethod = { actionMethod: method, actionId: methodCondAction.getValue("id"), jumpFlagCondId: condId };
+		unitList.createdActions.push(ulMethod);
+
+		return ulMethod;
+	}
+
+	private createMethodCondCallAction(unitList: DefinedUnitList, method: string) {
+		const condJumpFlagValue = this.nextId();
+		const jumpCondId = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), condJumpFlagValue, "Equals"));
+		const setCondJumpFlag = this.gen.gvSet(this.vn(vars.jumpFlag), condJumpFlagValue);
+
+		const resultOrBlockIds: number[] = [];
+		const conds: VTNode<CompKeys>[] = [];
+
+		const isMinusOne = this.gen.gvComp(this.vn(vars.result), -1, "Equals");
+
+		const unitComps: number[] = unitList.ids.map(id => {
+			const comp = this.gen.unitComp(method, id, false);
+			conds.push(comp);
+			return comp.getValue("id");
+		});
+
+		const allMatchAnd = this.gen.compAnd([isMinusOne.getValue("id"), ...unitComps]);
+		conds.push(isMinusOne, allMatchAnd);
+		resultOrBlockIds.push(allMatchAnd.getValue("id"));
+
+		unitList.ids.forEach((id, idx) => {
+			const idMatch = this.gen.gvComp(this.vn(vars.result), idx, "Equals");
+			const methodId = unitComps[idx];
+			const and = this.gen.compAnd([idMatch.getValue("id"), methodId]);
+			conds.push(and, idMatch);
+			resultOrBlockIds.push(and.getValue("id"));
+		});
+
+		const resultOr = this.gen.compOr(resultOrBlockIds);
+		conds.push(resultOr);
+		// conds.unshift(resultOr);
+		const conditional = this.gen.conditionalWithManyConditions(resultOr.getValue("id"), conds);
+		// conds.forEach(cond => conditional.addChild(cond));
+		// const conditionalsParent = this.vts.getNode("Conditionals");
+		// conditionalsParent.addChild(conditional);
+
+		const conditionalAction = this.gen.conditionalAction("methodCondCall");
+		const bb = conditionalAction.getNode("BASE_BLOCK");
+		bb.addChild(conditional);
+
+		const actionParent = new VTNode<"eventName">("ACTIONS");
+		actionParent.setValue("eventName", null);
+		actionParent.addChild(this.gen.gvSet(this.vn(vars.result), 1));
+		actionParent.addChild(setCondJumpFlag);
+		bb.addChild(actionParent);
+
+		const elseBlock = new VTNode<"eventName">("ELSE_ACTIONS");
+		elseBlock.setValue("eventName", null);
+		elseBlock.addChild(this.gen.gvSet(this.vn(vars.result), 0));
+		elseBlock.addChild(setCondJumpFlag);
+		bb.addChild(elseBlock);
+
+		const ulMethod: UnitListMethod = { actionMethod: method, actionId: conditionalAction.getValue("id"), jumpFlagCondId: jumpCondId };
 		unitList.createdActions.push(ulMethod);
 
 		return ulMethod;
@@ -629,8 +680,19 @@ class Compiler {
 
 		if (!unitList) throw new Error(`Unit list "${ast.target.value}" not found`);
 
-		let condActionId = unitList.createdActions.find(a => a.actionMethod == ast.method.value);
-		if (!condActionId) condActionId = this.createMethodCallAction(unitList, ast.method.value);
+		const classInfo = gameTypes.classes.find(c => c.name == unitList.type);
+		if (!classInfo) throw new Error(`Class "${unitList.type}" not found`);
+		const methodInfo = classInfo.methods.find(m => m.name == ast.method.value);
+		if (!methodInfo) throw new Error(`Method "${ast.method.value}" not found`);
+
+		// if (unitList.ids.length > 1) {
+		// 	this.add(this.gen.unitMethod(ast.method.value, unitList.ids[0]));
+		// }
+		let ulMethod = unitList.createdActions.find(a => a.actionMethod == ast.method.value);
+		if (!ulMethod) {
+			if (methodInfo.returnType == "void") ulMethod = this.createMethodCallAction(unitList, ast.method.value);
+			else ulMethod = this.createMethodCondCallAction(unitList, ast.method.value);
+		}
 
 		if (iterator) {
 			this.add(this.gen.gvCopy(iterator.backingGv.id, this.vn(vars.result)));
@@ -641,8 +703,9 @@ class Compiler {
 			this.add(this.gen.gvSet(this.vn(vars.result), -1));
 		}
 
-		this.add(this.gen.fireConditional(condActionId.actionId));
-		this.splitCurrentContext(condActionId.jumpFlagCondId);
+		this.add(this.gen.fireConditional(ulMethod.actionId));
+		this.splitCurrentContext(ulMethod.jumpFlagCondId);
+		if (methodInfo.returnType != "void") this.push();
 	}
 
 	private handleFunctionDeclaration(ast: AST.FunctionDeclaration) {
