@@ -41,7 +41,7 @@ const idStart = 10000;
 const varIds: Record<keyof typeof vars, number> = {
 	mathA: idStart + 0,
 	mathB: idStart + 1,
-	result: idStart + 2,
+	result: idStart + 2, // Changing result id will break backwards compatibility
 	stackOverflowFlag: idStart + 3,
 	indexOutOfBoundsFlag: idStart + 4,
 	jumpFlag: idStart + 5,

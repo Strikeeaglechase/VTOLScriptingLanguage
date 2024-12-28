@@ -8,6 +8,7 @@ import { Compiler, CompilerError } from "./compiler/compiler.js";
 import { IRGenerator } from "./compiler/ir/irGenerator.js";
 import { IROptimizer } from "./compiler/ir/irOptimizer.js";
 import { IRCompiler } from "./compiler/ir/irCompiler.js";
+import { deleteCompilerNodes, encodeCompilerOwnedInformation } from "./compiler/vtsCleaner.js";
 
 class Linker {
 	public analyzer: Analyzer;
@@ -34,6 +35,7 @@ class Linker {
 		this.debug("ast.json", () => JSON.stringify(ast, null, 2));
 
 		const orgVts = readVtsFile(vts);
+		deleteCompilerNodes(orgVts);
 		this.analyzer = new Analyzer(ast, tokenStream._all(), orgVts);
 		this.analyzer.analyze();
 
@@ -41,6 +43,7 @@ class Linker {
 
 		const compiler = new Compiler(ast, orgVts);
 		const compiledVts = compiler.compile();
+		encodeCompilerOwnedInformation(orgVts, compiledVts);
 		this.compilerErrors = compiler.errors;
 		this.debug("output.vts", () => writeVtsFile(compiledVts));
 
@@ -55,6 +58,7 @@ class Linker {
 		this.debug("optimizedIR.txt", () => IRGenerator.debug(optimizedIR));
 		const irCompiler = new IRCompiler(optimizedIR, orgVts);
 		const irCompiledVts = irCompiler.compile();
+		encodeCompilerOwnedInformation(orgVts, irCompiledVts);
 		this.debug("irresult.vts", () => writeVtsFile(irCompiledVts));
 
 		return { irCompiledVts, compiledVts };

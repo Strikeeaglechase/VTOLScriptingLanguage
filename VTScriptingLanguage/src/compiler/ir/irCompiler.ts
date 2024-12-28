@@ -148,7 +148,9 @@ class IRCompiler {
 
 	private createGvs() {
 		const gvContainer = this.vts.getNode("GlobalValues");
+		const existingGvs: number[] = gvContainer.getAllChildrenWithName("gv").map(gv => gv.getValue("data")[0]);
 		this.ir.gvs.forEach(gv => {
+			if (existingGvs.includes(gv.id)) return;
 			const gvNode = new VTNode<GVKeys>("gv");
 			const data = [gv.id, gv.name, null, gv.defaultValue];
 			gvNode.setValue("data", data);
