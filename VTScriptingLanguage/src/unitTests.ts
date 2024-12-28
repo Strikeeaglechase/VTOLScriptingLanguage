@@ -77,8 +77,17 @@ class UnitTester {
 
 			const compileEnd = Date.now();
 			this.compileTime += compileEnd - compileStart;
+
+			linker.compilerErrors.forEach(e => console.log(chalk.red(e.message)));
+			linker.parserErrors.forEach(e => console.log(chalk.red(e.message)));
+			linker.compilerErrors.forEach(e => {
+				throw e.message;
+			});
+			linker.parserErrors.forEach(e => {
+				throw e.message;
+			});
 		} catch (e) {
-			console.log(chalk.red(`Test ${testFile} failed to compile because ${e.message}`));
+			console.log(chalk.red(`Test ${testFile} failed to compile because ${e}`));
 			this.totalTests += expected.length + expectedEvents.length;
 			return;
 		}

@@ -8,7 +8,7 @@
 //EXPECT-EVENT 62.DestroySelf
 //EXPECT-EVENT 96.DestroySelf
 
-define targets: Unit = (1, 2, 10..17, 5, 18..106);
+define targets: AIUnitSpawn = (1, 2, 10..17, 5, 18..106);
 let a = 1;
 let b = 1;
 let c = 0; 

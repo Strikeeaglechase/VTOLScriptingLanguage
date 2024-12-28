@@ -1,5 +1,5 @@
 define players: MultiplayerSpawn = (1..5, 11, 12);
-define targets: Unit = 6..10;
+define targets: AIUnitSpawn = 6..10;
 define me: MultiplayerSpawn = 1;
 
 fn spawnDeadTargets() {

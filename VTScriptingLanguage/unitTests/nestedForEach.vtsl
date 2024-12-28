@@ -7,8 +7,8 @@
 //EXPECT-EVENT 4.DestroySelf
 //EXPECT-EVENT 5.DestroySelf
 
-define targets: Unit = 1..2;
-define tl2: Unit = 3..5;
+define targets: AIUnitSpawn = 1..2;
+define tl2: AIUnitSpawn = 3..5;
 
 forEach (targets as t) {
 	t.DestroySelf();
