@@ -1,12 +1,14 @@
 import { AST } from "../parser/ast.js";
-import { VTNode } from "../vtsParser.js";
+import { stringifyVTValue, VTNode, VTValue } from "../vtsParser.js";
 import { BaseBlockKeys, CompKeys, GVKeys } from "../vtTypes.js";
 import { Context, GV, Iterator } from "./context.js";
-import { loadGameTypes } from "./gameTypes.js";
+import { loadGameTypes, Method } from "./gameTypes.js";
+import { convertAstToMethodParameters, convertAstToParamInfo } from "./vtArgConverter.js";
 import { VTSGenerator } from "./vtsGenerator.js";
 
 export interface UnitListMethod {
 	actionMethod: string;
+	argKey: string;
 	actionId: number;
 	jumpFlagCondId: number;
 }
@@ -312,8 +314,8 @@ class Compiler {
 				case AST.Type.BinaryOperation:
 					this.handleBinaryOperation(ast);
 					break;
-				case AST.Type.LiteralNumber:
-					this.handleLiteralNumber(ast);
+				case AST.Type.Literal:
+					this.handleLiteral(ast);
 					break;
 				case AST.Type.IfStatement:
 					this.handleIf(ast);
@@ -374,7 +376,11 @@ class Compiler {
 		}
 	}
 
-	private handleLiteralNumber(ast: AST.LiteralNumber) {
+	private handleLiteral(ast: AST.Literal) {
+		if (typeof ast.value != "number") {
+			throw new Error(`The only datatype supported is numbers, ${typeof ast.value} can only be used in special cases`);
+		}
+
 		this.add(this.gen.gvSet(this.vn(vars.result), ast.value));
 		this.push();
 	}
@@ -564,7 +570,7 @@ class Compiler {
 		this.splitCurrentContext(forDoneCond);
 	}
 
-	private createMethodCallAction(unitList: DefinedUnitList, method: string) {
+	private createMethodCallAction(unitList: DefinedUnitList, method: string, params: { type: string; name: string; value: VTValue }[]) {
 		const methodCondAction = this.gen.conditionalAction(method);
 
 		const condActionJumpFlagValue = this.nextId();
@@ -575,7 +581,10 @@ class Compiler {
 		const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.result), -1, "Equals"));
 		const actionParent = new VTNode<"eventName">("ACTIONS");
 		actionParent.setValue("eventName", null);
-		unitList.ids.forEach(id => actionParent.addChild(this.gen.unitMethod(method, id)));
+		unitList.ids.forEach(id => {
+			const unitMethod = this.gen.unitMethod(method, id, params);
+			actionParent.addChild(unitMethod);
+		});
 		actionParent.addChild(setCondJumpFlag);
 
 		const baseBlock = methodCondAction.findChildWithName("BASE_BLOCK");
@@ -590,7 +599,8 @@ class Compiler {
 
 			const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
 			elseIfActionParent.setValue("eventName", null);
-			elseIfActionParent.addChild(this.gen.unitMethod(method, id));
+			const unitMethod = this.gen.unitMethod(method, id, params);
+			elseIfActionParent.addChild(unitMethod);
 			elseIfActionParent.addChild(setCondJumpFlag);
 
 			elseIf.addChild(elseIfConditional);
@@ -604,13 +614,18 @@ class Compiler {
 		elseBlock.addChild(this.gen.gvSet(this.vn(vars.indexOutOfBoundsFlag), 1));
 		baseBlock.addChild(elseBlock);
 
-		const ulMethod: UnitListMethod = { actionMethod: method, actionId: methodCondAction.getValue("id"), jumpFlagCondId: condId };
+		const ulMethod: UnitListMethod = {
+			actionMethod: method,
+			actionId: methodCondAction.getValue("id"),
+			jumpFlagCondId: condId,
+			argKey: params.map(p => stringifyVTValue(p.value)).join(",")
+		};
 		unitList.createdActions.push(ulMethod);
 
 		return ulMethod;
 	}
 
-	private createMethodCondCallAction(unitList: DefinedUnitList, method: string) {
+	private createMethodCondCallAction(unitList: DefinedUnitList, method: string, params: VTValue[]) {
 		const condJumpFlagValue = this.nextId();
 		const jumpCondId = this.createAndAddConditional(this.gen.gvComp(this.vn(vars.jumpFlag), condJumpFlagValue, "Equals"));
 		const setCondJumpFlag = this.gen.gvSet(this.vn(vars.jumpFlag), condJumpFlagValue);
@@ -621,7 +636,7 @@ class Compiler {
 		const isMinusOne = this.gen.gvComp(this.vn(vars.result), -1, "Equals");
 
 		const unitComps: number[] = unitList.ids.map(id => {
-			const comp = this.gen.unitComp(method, id, false);
+			const comp = this.gen.unitComp(method, id, false, params);
 			conds.push(comp);
 			return comp.getValue("id");
 		});
@@ -662,10 +677,35 @@ class Compiler {
 		elseBlock.addChild(setCondJumpFlag);
 		bb.addChild(elseBlock);
 
-		const ulMethod: UnitListMethod = { actionMethod: method, actionId: conditionalAction.getValue("id"), jumpFlagCondId: jumpCondId };
+		const ulMethod: UnitListMethod = {
+			actionMethod: method,
+			actionId: conditionalAction.getValue("id"),
+			jumpFlagCondId: jumpCondId,
+			argKey: params.map(stringifyVTValue).join(",")
+		};
 		unitList.createdActions.push(ulMethod);
 
 		return ulMethod;
+	}
+
+	private getOrCreateMethodCall(method: Method, ast: AST.MethodCall, unitList: DefinedUnitList) {
+		if (method.args.length != ast.arguments.length)
+			throw new Error(`Method "${ast.method.value}" expected ${method.args.length} arguments, got ${ast.arguments.length}`);
+
+		if (method.returnType == "void") {
+			const params = ast.arguments.map((arg, idx) => convertAstToParamInfo(arg, method.args[idx]));
+			const paramKey = params.map(p => stringifyVTValue(p.value)).join(",");
+			const ulMethod = unitList.createdActions.find(a => a.actionMethod == ast.method.value && a.argKey == paramKey);
+			if (ulMethod) return ulMethod;
+			return this.createMethodCallAction(unitList, ast.method.value, params);
+		} else {
+			const params = ast.arguments.map(arg => convertAstToMethodParameters(arg));
+			const paramKey = params.map(stringifyVTValue).join(",");
+			const ulMethod = unitList.createdActions.find(a => a.actionMethod == ast.method.value && a.argKey == paramKey);
+			if (ulMethod) return ulMethod;
+
+			return this.createMethodCondCallAction(unitList, ast.method.value, params);
+		}
 	}
 
 	private handleMethodCall(ast: AST.MethodCall) {
@@ -683,16 +723,12 @@ class Compiler {
 		const classInfo = gameTypes.classes.find(c => c.name == unitList.type);
 		if (!classInfo) throw new Error(`Class "${unitList.type}" not found`);
 		const methodInfo = classInfo.methods.find(m => m.name == ast.method.value);
-		if (!methodInfo) throw new Error(`Method "${ast.method.value}" not found`);
+		if (!methodInfo) throw new Error(`Method "${ast.method.value}" not found on type "${unitList.type}"`);
 
 		// if (unitList.ids.length > 1) {
 		// 	this.add(this.gen.unitMethod(ast.method.value, unitList.ids[0]));
 		// }
-		let ulMethod = unitList.createdActions.find(a => a.actionMethod == ast.method.value);
-		if (!ulMethod) {
-			if (methodInfo.returnType == "void") ulMethod = this.createMethodCallAction(unitList, ast.method.value);
-			else ulMethod = this.createMethodCondCallAction(unitList, ast.method.value);
-		}
+		const ulMethod = this.getOrCreateMethodCall(methodInfo, ast, unitList);
 
 		if (iterator) {
 			this.add(this.gen.gvCopy(iterator.backingGv.id, this.vn(vars.result)));
@@ -766,7 +802,8 @@ class Compiler {
 
 	private handlePrintFunctionCall(ast: AST.FunctionCall) {
 		const message = ast.arguments[0];
-		if (message.type != AST.Type.LiteralString) throw new Error("print() only supports string literals");
+		if (message.type != AST.Type.Literal) throw new Error("print() only supports string literals");
+		if (typeof message.value != "string") throw new Error("print() only supports string literals, got " + typeof message.value);
 
 		this.add(this.gen.displayMessage(message.value));
 	}
@@ -781,11 +818,14 @@ class Compiler {
 
 		ast.idRanges.forEach(idRange => {
 			if (idRange.type == AST.Type.BinaryOperation) {
-				const lower = (idRange.left as AST.LiteralNumber).value;
-				const upper = (idRange.right as AST.LiteralNumber).value;
+				const lower = (idRange.left as AST.Literal).value;
+				if (typeof lower != "number") throw new Error(`Expected number, got ${lower} (${typeof lower})`);
+				const upper = (idRange.right as AST.Literal).value;
+				if (typeof upper != "number") throw new Error(`Expected number, got ${upper} (${typeof upper})`);
 
 				for (let i = lower; i <= upper; i++) def.ids.push(i);
 			} else {
+				if (typeof idRange.value != "number") throw new Error(`Expected number, got ${idRange.value} (${typeof idRange.value})`);
 				def.ids.push(idRange.value);
 			}
 		});

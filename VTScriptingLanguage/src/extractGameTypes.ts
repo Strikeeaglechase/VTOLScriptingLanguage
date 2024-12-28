@@ -60,7 +60,7 @@ function extractClasses() {
 		const [_, name, inheres, body] = c;
 		return { name, inheres, body };
 	});
-	const condClasses = classes.filter(c => c.body.includes("[SCCUnitProperty"));
+	const condClasses = classes.filter(c => c.body.includes("[SCCUnitProperty") || c.body.includes("[VTEvent"));
 	console.log(`Found ${condClasses.length} classes with SCCUnitProperty`);
 
 	condClasses.forEach(c => processClass(c.name));
@@ -115,4 +115,4 @@ const unofficialArgTypes = [...argTypes].filter(t => !sOfficialArgTypes.has(t));
 
 // Argument types: int, Actor,  UnitSpawner, ConfigNode, GameObject Vector3D, PhoneticLetters, string
 // Official argument types: CardinalDirections, FollowPath, InOrOut, bool, UnitReferenceListOtherSubs, Teams, UnitReferenceList, PlayerCommandsModes, FormationDistances, Waypoint, float, FlightStartModes, TargetingMethods, SCCPlayerSensors, FixedPoint
-fs.writeFileSync("../debug/classInfo.json", JSON.stringify({ classes: classInfos, enums: relevantEnumInfos }, null, 2));
+fs.writeFileSync("../../classInfo.json", JSON.stringify({ classes: classInfos, enums: relevantEnumInfos }, null, 2));

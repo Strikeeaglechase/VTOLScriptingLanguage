@@ -113,6 +113,19 @@ function parseVTValue(value: string): VTValue {
 	return value;
 }
 
+function stringifyVTValue(value: VTValue): string {
+	if (value === null) return "null";
+	if (value === true) return "True";
+	if (value === false) return "False";
+	if (typeof value === "number") return value.toString();
+	if (typeof value === "object") {
+		const { x, y, z } = value as Vector3;
+		return `(${x}, ${y}, ${z})`;
+	}
+	if (Array.isArray(value)) return value.map(stringifyVTValue).join(";") + ";";
+	return value;
+}
+
 function processValueLine(line: string) {
 	// const [key, value] = line.split("=");
 	const eqIdx = line.indexOf("=");
@@ -182,7 +195,7 @@ function writeVtsFile(node: VTNode) {
 	return _writeVtsFile(node).join("\n");
 }
 
-export { readVtsFile, writeVtsFile, VTNode, VTValue, Vector3 };
+export { readVtsFile, writeVtsFile, VTNode, VTValue, Vector3, stringifyVTValue };
 
 if (false) {
 	const file = fs.readFileSync(

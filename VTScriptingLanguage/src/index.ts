@@ -21,7 +21,7 @@ const linker = new Linker();
 linker.enableDebugIn("../debug/");
 const { irCompiledVts } = linker.compile(source, sourceVts);
 if (linker.hasErrors) {
-	console.log(chalk.red(`Compilation failed with ${linker.parserErrors.length} parse errors and ${linker.compilerErrors.length} linker errors`));
+	console.log(chalk.red(`Compilation failed with ${linker.parserErrors.length} parse errors and ${linker.compilerErrors.length} compiler errors`));
 	process.exit(1);
 }
 

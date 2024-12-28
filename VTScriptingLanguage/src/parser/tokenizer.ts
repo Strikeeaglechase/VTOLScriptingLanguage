@@ -3,6 +3,8 @@ import { PosChar } from "./preprocessor.js";
 
 const identifierStartChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
 
+const trueName = "true";
+const falseName = "false";
 const keywords = ["define", "forEach", "for", "while", "if", "fn", "let", "ref", "as", "return", "declare"];
 const operands = ["+", "-", "*", "/", "%", "|", "&", "||", "&&", "!", "==", "!=", "<", ">", "<=", ">=", "..", "+=", "-="];
 const symbols = ["(", ")", "[", "]", "{", "}", ";", ",", ".", "=", ":"];
@@ -33,6 +35,7 @@ enum TokenType {
 	Identifier = "identifier",
 	LiteralNumber = "literalNumber",
 	LiteralString = "literalString",
+	LiteralBoolean = "literalBoolean",
 	Comment = "comment"
 }
 
@@ -99,7 +102,14 @@ class Tokenizer {
 			return;
 		}
 
-		if (identifierStartChars.includes(value[0])) {
+		if (value == trueName || value == falseName) {
+			this.tokens.push({
+				type: TokenType.LiteralBoolean,
+				value: value,
+				line: line,
+				column: column
+			});
+		} else if (identifierStartChars.includes(value[0])) {
 			this.tokens.push({
 				type: TokenType.Identifier,
 				value: value.trim(),
@@ -213,4 +223,4 @@ class Tokenizer {
 	}
 }
 
-export { Tokenizer, Token, TokenType, operandPrecedence };
+export { Tokenizer, Token, TokenType, operandPrecedence, trueName, falseName };

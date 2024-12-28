@@ -1,6 +1,6 @@
 import { Stream } from "../stream.js";
 import { AST, correctOrderPos, getLastPos, getLastPosNamed } from "./ast.js";
-import { operandPrecedence, Token, TokenType } from "./tokenizer.js";
+import { operandPrecedence, Token, TokenType, trueName } from "./tokenizer.js";
 
 interface ParserError {
 	message: string;
@@ -12,7 +12,7 @@ interface ParserError {
 class Parser {
 	public errors: ParserError[] = [];
 	private lastMaybeConsumed: Token;
-	constructor(private tokens: Stream<Token>) {}
+	constructor(private tokens: Stream<Token>, private continueOnError = true) {}
 
 	public parse() {
 		const prog: AST.Program = {
@@ -44,6 +44,9 @@ class Parser {
 					break;
 				case TokenType.LiteralString:
 					result = this.handleLiteralString();
+					break;
+				case TokenType.LiteralBoolean:
+					result = this.handleLiteralBool();
 					break;
 				case TokenType.Symbol:
 					result = this.handleSymbol();
@@ -80,6 +83,8 @@ class Parser {
 				column: token.column,
 				token: token
 			});
+
+			if (!this.continueOnError) throw e;
 
 			return null;
 		}
@@ -194,6 +199,10 @@ class Parser {
 				// this.tokens.next(); // Read )
 				this.consumeOrThrow(")");
 				return result;
+			}
+
+			case "{": {
+				return this.parseVectorLiteral(symbol);
 			}
 
 			case ";": {
@@ -347,8 +356,8 @@ class Parser {
 		const val = parseInt(literal.value);
 		if (isNaN(val)) throw new Error(`Invalid numeric ${literal.value} at ${literal.line}:${literal.column}`);
 
-		const literalNumber: AST.LiteralNumber = {
-			type: AST.Type.LiteralNumber,
+		const literalNumber: AST.Literal = {
+			type: AST.Type.Literal,
 			value: val,
 			line: literal.line,
 			column: literal.column,
@@ -362,8 +371,8 @@ class Parser {
 	private handleLiteralString() {
 		const literal = this.tokens.next();
 		const val = literal.value;
-		const literalString: AST.LiteralString = {
-			type: AST.Type.LiteralString,
+		const literalString: AST.Literal = {
+			type: AST.Type.Literal,
 			value: val,
 			line: literal.line,
 			column: literal.column,
@@ -372,6 +381,58 @@ class Parser {
 		};
 
 		return literalString;
+	}
+
+	private handleLiteralBool() {
+		const literal = this.tokens.next();
+		const val = literal.value == trueName;
+		const literalBool: AST.Literal = {
+			type: AST.Type.Literal,
+			value: val,
+			line: literal.line,
+			column: literal.column,
+			lineEnd: literal.line,
+			columnEnd: literal.column + literal.value.length
+		};
+
+		return literalBool;
+	}
+
+	private parseVectorLiteral(openBrace: Token) {
+		const vec = { x: 0, y: 0, z: 0 };
+		let closeBrace: Token;
+		while (!(closeBrace = this.maybeConsumeAndReturn("}"))) {
+			const key = this.tokens.next();
+			this.consumeOrThrow(":");
+			const value = this.tokens.next();
+			this.maybeConsume(",");
+			if (value.type != TokenType.LiteralNumber) throw new Error(`Invalid literal ${value.value} for vector at ${value.line}:${value.column}`);
+
+			switch (key.value) {
+				case "x":
+					vec.x = parseInt(value.value);
+					break;
+				case "y":
+					vec.y = parseInt(value.value);
+					break;
+				case "z":
+					vec.z = parseInt(value.value);
+					break;
+				default:
+					throw new Error(`Invalid key ${key.value} for vector at ${key.line}:${key.column}`);
+			}
+		}
+
+		const vectorLiteral: AST.VectorLiteral = {
+			type: AST.Type.VectorLiteral,
+			value: vec,
+			line: openBrace.line,
+			column: openBrace.column,
+			lineEnd: closeBrace.line,
+			columnEnd: closeBrace.column + 1
+		};
+
+		return vectorLiteral;
 	}
 
 	private parseOptionallyParenthesizedList() {
@@ -426,17 +487,17 @@ class Parser {
 		const values = this.parseOptionallyParenthesizedList();
 		values.forEach(value => {
 			if (value.type == AST.Type.BinaryOperation) {
-				if (value.left.type != AST.Type.LiteralNumber || value.right.type != AST.Type.LiteralNumber) {
+				if (value.left.type != AST.Type.Literal || value.right.type != AST.Type.Literal) {
 					throw new Error(`Invalid range ${value.left}..${value.right} (must be constant) at ${value.line}:${value.column}`);
 				}
-			} else if (value.type != AST.Type.LiteralNumber) throw new Error(`Invalid value ${value} (must be constant) at ${value.line}:${value.column}`);
+			} else if (value.type != AST.Type.Literal) throw new Error(`Invalid value ${value} (must be constant) at ${value.line}:${value.column}`);
 		});
 
 		const unitDefine: AST.UnitDefine = {
 			type: AST.Type.UnitDefine,
 			name: name,
 
-			idRanges: values as (AST.LiteralNumber | AST.BinaryOperation)[],
+			idRanges: values as (AST.Literal | AST.BinaryOperation)[],
 			unitType: type,
 
 			line: define.line,

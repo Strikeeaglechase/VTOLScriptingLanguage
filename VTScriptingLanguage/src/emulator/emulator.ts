@@ -1,7 +1,7 @@
 import fs from "fs";
 
 import { vars } from "../compiler/compiler.js";
-import { VTNode } from "../vtsParser.js";
+import { stringifyVTValue, VTNode } from "../vtsParser.js";
 import { CompKeys, ConditionalActionKeys, ConditionalKeys, EventTargetKeys, ParamInfoKeys, SequenceKeys } from "../vtTypes.js";
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -346,7 +346,11 @@ class Emulator {
 	}
 
 	private handleUnitEvent(event: VTNode<EventTargetKeys>, depth: number) {
-		if (this.debug) console.log(`Unit ${event.getValue("targetID")}.${event.getValue("methodName")}()`);
+		if (this.debug) {
+			const params = event.getAllChildrenWithName("ParamInfo");
+			const paramStr = params.map(p => stringifyVTValue(p.getValue("value"))).join(", ");
+			console.log(`Unit ${event.getValue("targetID")}.${event.getValue("methodName")}(${paramStr})`);
+		}
 		this.executedEvents.push({ unitId: event.getValue("targetID"), method: event.getValue("methodName") });
 	}
 

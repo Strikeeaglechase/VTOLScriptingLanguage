@@ -16,8 +16,8 @@ export namespace AST {
 		MethodCall = "method",
 		FunctionCall = "call",
 		IfStatement = "if",
-		LiteralNumber = "number",
-		LiteralString = "string",
+		Literal = "number",
+		VectorLiteral = "vector",
 		Semi = "semi",
 		ForEach = "forEach",
 		For = "for",
@@ -66,8 +66,8 @@ export namespace AST {
 			node.body.forEach(visitor);
 		},
 		[Type.Return]: (node, visitor) => visitor(node.value),
-		[Type.LiteralNumber]: () => {},
-		[Type.LiteralString]: () => {},
+		[Type.Literal]: () => {},
+		[Type.VectorLiteral]: () => {},
 		[Type.Semi]: () => {},
 		[Type.Comment]: () => {},
 		[Type.Declare]: () => {}
@@ -116,7 +116,7 @@ export namespace AST {
 		name: Token;
 		unitType: Token;
 
-		idRanges: (LiteralNumber | BinaryOperation)[];
+		idRanges: (Literal | BinaryOperation)[];
 	}
 
 	export interface FunctionDeclaration extends Node {
@@ -218,15 +218,14 @@ export namespace AST {
 		body: AnyAST[];
 	}
 
-	export interface LiteralString extends Node {
-		type: Type.LiteralString;
-		value: string;
+	export interface Literal extends Node {
+		type: Type.Literal;
+		value: number | string | boolean;
 	}
 
-	export interface LiteralNumber extends Node {
-		type: Type.LiteralNumber;
-		// token: Token;
-		value: number;
+	export interface VectorLiteral extends Node {
+		type: Type.VectorLiteral;
+		value: { x: number; y: number; z: number };
 	}
 
 	export interface Return extends Node {
@@ -269,8 +268,8 @@ export namespace AST {
 		| For
 		| While
 		| Return
-		| LiteralNumber
-		| LiteralString
+		| Literal
+		| VectorLiteral
 		| Semi
 		| Comment
 		| Declare;

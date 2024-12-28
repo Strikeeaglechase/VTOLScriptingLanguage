@@ -17,7 +17,13 @@ export interface EnumInfo {
 	values: { key: string; value: string }[];
 }
 
+let types: { classes: ClassInfo[]; enums: EnumInfo[] };
+
 export function loadGameTypes() {
-	const types = fs.readFileSync("../../classInfo.json", "utf-8");
-	return JSON.parse(types) as { classes: ClassInfo[]; enums: EnumInfo[] };
+	if (!types) {
+		const gTypes = fs.readFileSync("../../classInfo.json", "utf-8");
+		types = JSON.parse(gTypes) as { classes: ClassInfo[]; enums: EnumInfo[] };
+	}
+
+	return types;
 }

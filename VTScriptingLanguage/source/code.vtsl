@@ -1,4 +1,4 @@
-define target: AIUnitSpawn = 1..2;
-if (target[0].SC_IsAlive()) {
-	print("Unit 1 is alive");
-}
+define target: GroundUnitSpawn = 1..2;
+
+target[0].SetMovementSpeed(MoveSpeeds.Medium_20)
+target[0].SetMovementSpeed(MoveSpeeds.Medium_20)

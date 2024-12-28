@@ -505,7 +505,7 @@ class VTSGenerator {
 	}
 
 	@Track
-	public unitMethod(method: string, unitId: number) {
+	public unitMethod(method: string, unitId: number, params: { name: string; type: string; value: VTValue }[]) {
 		const eventTarget = new VTNode<EventTargetKeys | "altTargetIdx">("EventTarget");
 		eventTarget.setValue("targetType", "Unit");
 		eventTarget.setValue("targetID", unitId);
@@ -513,11 +513,19 @@ class VTSGenerator {
 		eventTarget.setValue("methodName", method);
 		eventTarget.setValue("altTargetIdx", -2);
 
+		params.forEach(param => {
+			const paramInfo = new VTNode<ParamInfoKeys>("ParamInfo");
+			paramInfo.setValue("type", param.type);
+			paramInfo.setValue("value", param.value);
+			paramInfo.setValue("name", param.name);
+			eventTarget.addChild(paramInfo);
+		});
+
 		return eventTarget;
 	}
 
 	@Track
-	public unitComp(method: string, unitId: number, negated: boolean) {
+	public unitComp(method: string, unitId: number, negated: boolean, params: VTValue[]) {
 		const comp = new VTNode<CompKeys>("COMP");
 		comp.setValue("id", this.nextId());
 		comp.setValue("type", "SCCUnit");
@@ -526,6 +534,12 @@ class VTSGenerator {
 		comp.setValue("methodName", method);
 		comp.setValue("methodParameters", null);
 		comp.setValue("isNot", negated);
+
+		params.forEach(param => {
+			const methodParam = new VTNode("methodParameters");
+			methodParam.setValue("value", param);
+			comp.addChild(methodParam);
+		});
 
 		return comp;
 	}
@@ -538,6 +552,14 @@ class VTSGenerator {
 		paramInfo.setValue("name", name);
 
 		return paramInfo;
+	}
+
+	@Track
+	public methodParameters(param: VTValue) {
+		const methodParameters = new VTNode<"value">("methodParameters");
+		methodParameters.setValue("value", param);
+
+		return methodParameters;
 	}
 }
 
