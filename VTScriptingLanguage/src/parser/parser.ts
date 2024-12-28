@@ -9,6 +9,8 @@ interface ParserError {
 	token: Token;
 }
 
+const LOG_STACK = true;
+
 class Parser {
 	public errors: ParserError[] = [];
 	private lastMaybeConsumed: Token;
@@ -22,16 +24,26 @@ class Parser {
 			column: 0
 		};
 
-		while (!this.tokens.eof()) {
-			const ast = this.parseAst();
-			if (ast != null) prog.body.push(ast);
+		try {
+			while (!this.tokens.eof()) {
+				const ast = this.parseAst();
+				if (ast != null) prog.body.push(ast);
+			}
+		} catch (e) {
+			console.log(`Parse error bubbled to top level: ${e.message}`);
+			this.errors.push({
+				message: e.message,
+				line: 0,
+				column: 0,
+				token: { type: TokenType.Comment, value: "", line: 0, column: 0 }
+			});
 		}
 
 		return prog;
 	}
 
 	private parseAst(): AST.AnyAST {
-		if (this.errors.length > 50) return null;
+		if (this.errors.length > 50) throw new Error("Too many errors, aborting parsing");
 		const token = this.tokens.peek();
 		try {
 			let result: AST.AnyAST;
@@ -74,8 +86,8 @@ class Parser {
 			return result;
 		} catch (e) {
 			console.log(`Error parsing token ${token.value} at ${token.line}:${token.column}`);
-			// console.log(`\t${e.message}`);
-			console.log(e);
+			if (!LOG_STACK) console.log(`\t${e.message}`);
+			else console.log(e);
 
 			this.errors.push({
 				message: e.message,
@@ -314,7 +326,13 @@ class Parser {
 		}
 
 		this.consumeOrThrow(".");
-		const property = this.tokens.next();
+		const property = this.tokens.peek();
+		if (property.type != TokenType.Identifier) {
+			// Misstyped property, should error but lets gracefully exit so that we can provide autocomplete
+			return null;
+			// throw new Error(`Invalid property ${property.value} at ${property.line}:${property.column}`);
+		}
+		this.tokens.next();
 
 		const nextTkn = this.tokens.peek();
 		if (nextTkn.value == "(") {

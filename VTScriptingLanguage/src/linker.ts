@@ -21,14 +21,14 @@ class Linker {
 	private debugEnabled = false;
 	private debugPath = "";
 
-	public compile(source: string, vts: string, onlyAnalyze = false) {
+	public compile(source: string, vts: string, onlyAnalyze = false, continueParseOnError = true) {
 		const preprocessor = new Preprocessor(source);
 		const posCharStream = preprocessor.preprocess();
 
 		const tokenizer = new Tokenizer(posCharStream);
 		const tokenStream = tokenizer.parse();
 		this.debug("tokens.txt", () => Tokenizer.debug(tokenStream));
-		const parser = new Parser(tokenStream, !this.debugEnabled);
+		const parser = new Parser(tokenStream, continueParseOnError);
 		const ast = parser.parse();
 		this.parserErrors = parser.errors;
 		this.debug("ast.json", () => JSON.stringify(ast, null, 2));

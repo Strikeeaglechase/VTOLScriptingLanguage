@@ -1,4 +1,6 @@
 define target: GroundUnitSpawn = 1..2;
 
-target[0].SetMovementSpeed(MoveSpeeds.Medium_20)
-target[0].SetMovementSpeed(MoveSpeeds.Medium_20)
+// target[0].SetMovementSpeed(MoveSpeeds.Fast_30);
+forEach (target as t) {
+	t.SetMovementSpeed(MoveSpeeds.Slow_10);
+}

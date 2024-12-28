@@ -8,8 +8,14 @@ import chalk from "chalk";
 
 let sourceVtsPath = "C:/Program Files (x86)/Steam/steamapps/common/VTOL VR/CustomScenarios/Campaigns/chaseFeetPics/TestMission2/TestMission2.vts";
 let sourceCodePath: string;
-if (fs.existsSync("./source/code.vtsl")) sourceCodePath = "./source/code.vtsl";
-else sourceCodePath = "../source/code.vtsl";
+let debugPath: string;
+if (fs.existsSync("./source/code.vtsl")) {
+	sourceCodePath = "./source/code.vtsl";
+	debugPath = "./debug/";
+} else {
+	sourceCodePath = "../source/code.vtsl";
+	debugPath = "../debug/";
+}
 
 const source = fs.readFileSync(sourceCodePath, "utf8");
 const sourceVts = fs.readFileSync(sourceVtsPath, "utf8");
@@ -18,7 +24,7 @@ const debugSymbols = debugSymbolsMatch ? debugSymbolsMatch[1].split(",").map(s =
 
 const compileStart = Date.now();
 const linker = new Linker();
-linker.enableDebugIn("../debug/");
+linker.enableDebugIn(debugPath);
 const { irCompiledVts } = linker.compile(source, sourceVts);
 if (linker.hasErrors) {
 	console.log(chalk.red(`Compilation failed with ${linker.parserErrors.length} parse errors and ${linker.compilerErrors.length} compiler errors`));
@@ -35,7 +41,7 @@ fs.writeFileSync(
 );
 
 async function run() {
-	const emulateLog = fs.createWriteStream("../debug/elog.txt");
+	const emulateLog = fs.createWriteStream(debugPath + "elog.txt");
 	const emulator = new Emulator(irCompiledVts, true, emulateLog);
 	const t = Date.now();
 	await emulator.execute();

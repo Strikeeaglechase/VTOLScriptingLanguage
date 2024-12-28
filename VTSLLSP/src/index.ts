@@ -5,22 +5,14 @@ import {
 	CompletionParams,
 	DidChangeTextDocumentParams,
 	DidOpenTextDocumentParams,
-	DocumentColorParams,
-	DocumentColorRequest,
 	DocumentDiagnosticParams,
 	FullDocumentDiagnosticReport,
 	InitializeParams,
 	InitializeResult,
 	SemanticTokensParams,
-	SemanticTokensRequest,
-	ServerCapabilities,
-	TextDocumentContentChangeEvent
+	ServerCapabilities
 } from "./lspTypes/protocol.js";
-import { ColorInformation, CompletionList, Diagnostic, SemanticTokens } from "vscode-languageserver-types";
-import { Preprocessor } from "./compiler/parser/preprocessor.js";
-import { Tokenizer } from "./compiler/parser/tokenizer.js";
-import { Parser } from "./compiler/parser/parser.js";
-import { Analyzer } from "./compiler/analyzer.js";
+import { CompletionItem, CompletionList, Diagnostic, SemanticTokens } from "vscode-languageserver-types";
 import { Linker } from "./compiler/linker.js";
 import { basicVts } from "./compiler/baseVts.js";
 import { getLastPos } from "./compiler/parser/ast.js";
@@ -43,6 +35,12 @@ enum SemanticTokenTypes {
 	comment = "comment",
 	string = "string",
 	number = "number"
+}
+
+enum CompletionItemKind {
+	Method = 2,
+	Function = 3,
+	Variable = 6
 }
 
 const serverCapabilities: ServerCapabilities = {
@@ -167,6 +165,7 @@ class LSP {
 		});
 
 		const compilerDiagnostics: Diagnostic[] = file.linker.compilerErrors.map(err => {
+			if (!err.node) return { message: err.message, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } };
 			const end = getLastPos(err.node);
 
 			return {
@@ -215,12 +214,36 @@ class LSP {
 	private handleCompletionRequest(message: RequestMessage, payload: CompletionParams) {
 		const file = this.files[payload.textDocument.uri];
 		const symbols = file.linker.analyzer.getSymbolsAtLine(payload.position.line + 1, payload.position.character + 1);
+		const items: CompletionItem[] = symbols.map(symbol => {
+			if (symbol.type == "variable") return { label: symbol.name, kind: CompletionItemKind.Variable };
+			if (symbol.type == "define") {
+				const item: CompletionItem = {
+					label: symbol.name,
+					detail: symbol.defType,
+					kind: CompletionItemKind.Variable
+				};
+				return item;
+			}
+
+			const item: CompletionItem = {
+				kind: CompletionItemKind.Method,
+				label: symbol.name,
+				detail: `${symbol.name}(${symbol.args.map(a => `${a.name}: ${a.type}`).join(", ")}): ${symbol.returnType}`,
+				tags: symbol.intended ? [] : [1]
+			};
+
+			if (!symbol.intended) {
+				item.documentation = `The game does not typically expose this function, so use at your own risk.`;
+				// item.detail += "\n\n The game does not typically expose this function, so use at your own risk.";
+			}
+
+			return item;
+		});
+		// (method) LSP.handleCompletionRequest(message: RequestMessage, payload: CompletionParams): CompletionList
 
 		const result: CompletionList = {
 			isIncomplete: false,
-			items: symbols.map(symbol => {
-				return { label: symbol };
-			})
+			items
 		};
 
 		return result;

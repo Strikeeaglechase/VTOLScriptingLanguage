@@ -341,7 +341,9 @@ class Compiler {
 			}
 		} catch (e) {
 			this.errors.push({ message: e.message, node: ast });
-			console.log(e);
+			console.log(`Error compiling AST node: ${ast.type} at ${ast.line}:${ast.column}`);
+			console.log(`\t${e.message}`);
+			// console.log(e);
 		}
 	}
 

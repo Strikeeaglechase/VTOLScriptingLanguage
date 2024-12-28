@@ -1,9 +1,7 @@
-import { DefinedUnitList, RefVar } from "./compiler/compiler.js";
-import { Context } from "./compiler/context.js";
+import { loadGameTypes } from "./compiler/gameTypes.js";
 import { AST, getLastPos } from "./parser/ast.js";
 import { Token, TokenType } from "./parser/tokenizer.js";
 import { VTNode } from "./vtsParser.js";
-import fs from "fs";
 
 enum SemanticTokenTypes {
 	type = "type",
@@ -19,8 +17,16 @@ enum SemanticTokenTypes {
 	number = "number"
 }
 
+// interface SymbolInformation {
+// }
+type SymbolInformation =
+	| { type: "variable"; name: string }
+	| { type: "define"; name: string; defType: string }
+	| { type: "function"; name: string; args: { name: string; type: string }[]; returnType: string; intended: boolean };
+
 class AnalyzerContext {
-	vars: string[] = [];
+	private vars: string[] = [];
+	private defines: { name: string; type: string }[] = [];
 
 	constructor(public parent: AnalyzerContext | null) {}
 
@@ -31,12 +37,29 @@ class AnalyzerContext {
 		return false;
 	}
 
+	public getDefine(name: string) {
+		const local = this.defines.find(d => d.name == name);
+		if (local) return local;
+
+		if (this.parent) return this.parent.getDefine(name);
+		return null;
+	}
+
 	public addVar(name: string) {
 		this.vars.push(name);
 	}
 
+	public addDefine(name: string, type: string) {
+		this.defines.push({ name, type });
+	}
+
 	public allVars(): string[] {
+		// const allLocalVars = this.vars.concat(this.defines.map(d => d.name));
 		return this.vars.concat(this.parent ? this.parent.allVars() : []);
+	}
+
+	public allDefines(): { name: string; type: string }[] {
+		return this.defines.concat(this.parent ? this.parent.allDefines() : []);
 	}
 }
 
@@ -85,23 +108,83 @@ class Analyzer {
 			}
 
 			case AST.Type.UnitDefine:
-				this.unitLists.push({ name: ast.name.value, type: ast.unitType.value });
+				// this.unitLists.push({ name: ast.name.value, type: ast.unitType.value });
+				this.currentContext.addDefine(ast.name.value, ast.unitType.value);
 				break;
 
 			case AST.Type.ForEach: {
 				const ctx = new AnalyzerContext(this.currentContext);
-				// this.contexts.push(ctx);
-				ctx.addVar(ast.variable.value);
+				const define = this.currentContext.getDefine(ast.list.value);
+				ctx.addDefine(ast.variable.value, define.type);
 				this.contextRanges.push({ startLine: ast.line, startColumn: ast.column, endLine: ast.lineEnd, endColumn: ast.columnEnd, context: ctx });
-				// console.log(`ForEach ${ast.variable.value} in ${ast.line}:${ast.column}-${ast.lineEnd}:${ast.columnEnd}`);
-				// this.contexts.pop();
-				// ast.body.forEach(node => this.analyzeAst(node));
 				break;
 			}
 		}
 	}
 
-	public getSymbolsAtLine(line: number, column: number) {
+	private identifyPartialEnumRead(line: number, column: number) {
+		const selectedToken = this.tokens.find(token => {
+			if (token.line != line) return false;
+			const len = token.value.length;
+			return token.column <= column && token.column + len >= column;
+		});
+		if (!selectedToken) return null;
+
+		let isPartOfDotExpression = selectedToken.type == TokenType.Symbol && selectedToken.value == ".";
+		let indexOffset = -1;
+		if (!isPartOfDotExpression) {
+			const previousToken = this.tokens[this.tokens.indexOf(selectedToken) - 1];
+			isPartOfDotExpression = previousToken.type == TokenType.Symbol && previousToken.value == ".";
+			indexOffset = -2;
+		}
+
+		if (!isPartOfDotExpression) return null;
+
+		const enumName = this.tokens[this.tokens.indexOf(selectedToken) + indexOffset].value;
+		const enumType = loadGameTypes().enums.find(e => e.name == enumName);
+		return enumType;
+	}
+
+	public identifyPartialMethodCall(line: number, column: number, contexts: AnalyzerContext[]) {
+		const selectedToken = this.tokens.find(token => {
+			if (token.line != line) return false;
+			const len = token.value.length;
+			return token.column <= column && token.column + len >= column;
+		});
+		if (!selectedToken) return null;
+
+		let isPartOfDotExpression = selectedToken.type == TokenType.Symbol && selectedToken.value == ".";
+		let index = this.tokens.indexOf(selectedToken) - 1;
+		if (!isPartOfDotExpression) {
+			const previousToken = this.tokens[index];
+			isPartOfDotExpression = previousToken.type == TokenType.Symbol && previousToken.value == ".";
+			index--;
+		}
+
+		if (!isPartOfDotExpression) return null;
+
+		const maybeIndexExpr = this.tokens[index];
+		if (maybeIndexExpr.type == TokenType.Symbol && maybeIndexExpr.value == "]") {
+			while (this.tokens[index].value != "[") index--;
+		}
+		const maybeCloseIndexExpr = this.tokens[index];
+		if (maybeCloseIndexExpr.type == TokenType.Symbol && maybeCloseIndexExpr.value == "[") index--;
+
+		const targetName = this.tokens[index].value;
+		const isEnum = loadGameTypes().enums.some(e => e.name == targetName);
+		if (isEnum) return null;
+
+		const define = contexts.find(ctx => ctx.getDefine(targetName))?.getDefine(targetName);
+		if (!define) return null;
+
+		const methods = loadGameTypes().classes.find(c => c.name == define.type).methods;
+		return methods;
+	}
+
+	public getSymbolsAtLine(line: number, column: number): SymbolInformation[] {
+		const partialEnum = this.identifyPartialEnumRead(line, column);
+		if (partialEnum) return partialEnum.values.map(v => ({ name: v.key, type: "variable" }));
+
 		const contextRange = this.contextRanges.filter(ctx => {
 			if (line > ctx.startLine && line < ctx.endLine) return true; // Inside context
 			const firstLineInside = line != ctx.startLine || column >= ctx.startColumn;
@@ -111,12 +194,45 @@ class Analyzer {
 			return inLineBounds && firstLineInside && lastLineInside;
 		});
 
-		const vars: Set<string> = new Set();
-		this.unitLists.forEach(unit => vars.add(unit.name));
-		this.contexts[0].allVars().forEach(varName => vars.add(varName));
-		contextRange.forEach(range => range.context.allVars().forEach(varName => vars.add(varName)));
+		contextRange.forEach(ctx => console.log(ctx.context));
 
-		return Array.from(vars);
+		const partialMethod = this.identifyPartialMethodCall(line, column, [this.contexts[0], ...contextRange.map(ctx => ctx.context)]);
+		if (partialMethod) {
+			return partialMethod.map(m => {
+				return {
+					name: m.name,
+					type: "function",
+					args: m.args,
+					returnType: m.returnType,
+					intended: !!m.decorator
+				};
+			});
+		}
+
+		const vars: Set<string> = new Set();
+		const defs: { name: string; type: string }[] = [];
+		this.contexts[0].allVars().forEach(varName => vars.add(varName));
+		this.contexts[0].allDefines().forEach(def => {
+			if (defs.some(d => d.name == def.name)) return;
+			defs.push(def);
+		});
+
+		contextRange.forEach(range => {
+			range.context.allVars().forEach(varName => vars.add(varName));
+			range.context.allDefines().forEach(def => {
+				if (defs.some(d => d.name == def.name)) return;
+				defs.push(def);
+			});
+		});
+
+		// Load enums
+		loadGameTypes().enums.forEach(e => vars.add(e.name));
+
+		const result: SymbolInformation[] = [];
+		vars.forEach(v => result.push({ name: v, type: "variable" }));
+		defs.forEach(d => result.push({ name: d.name, type: "define", defType: d.type }));
+
+		return result;
 	}
 
 	public getTokenSemantics() {
@@ -167,7 +283,7 @@ class Analyzer {
 		});
 
 		if (!matchingAst) {
-			console.log(`Could not find token ${token.value} (${token.line}:${token.column})`);
+			console.log(`Could not find token ${token.value} (${token.line}:${token.column}) for semantics`);
 			return null;
 		}
 
@@ -189,11 +305,14 @@ class Analyzer {
 				return SemanticTokenTypes.function;
 			case AST.Type.ForEach:
 				return SemanticTokenTypes.variable;
-			// if (matchingAst.variable == token) return SemanticTokenTypes.variable;
-			// return SemanticTokenTypes.parameter;
+			case AST.Type.PropertyAccess:
+				if (matchingAst.property == token) return SemanticTokenTypes.property;
+				if (matchingAst.target == token) return SemanticTokenTypes.class;
+				throw new Error("Unknown identifier in PropertyAccess");
 
 			default:
-				throw new Error(`Identifier semantics not implemented for ${matchingAst.type}`);
+				console.log(`Identifier semantics not implemented for ${matchingAst.type}`);
+			// throw new Error(`Identifier semantics not implemented for ${matchingAst.type}`);
 		}
 	}
 }

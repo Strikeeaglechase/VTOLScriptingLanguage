@@ -47,7 +47,9 @@ function extractClasses() {
 		const inheritanceChain = resolveInheritanceChain(klass.name).split(" <- ").slice(1, -1);
 		inheritanceChain.forEach(parentClass => {
 			const parentInfo = processClass(parentClass);
-			info.methods.push(...parentInfo.methods);
+			parentInfo.methods.forEach(m => {
+				if (!info.methods.some(im => im.name === m.name)) info.methods.push(m);
+			});
 		});
 
 		classInfos.push(info);
@@ -99,7 +101,6 @@ classInfos.forEach(c => {
 	});
 });
 
-// const types = ["int", "bool", "float", "string", ...enumsInfos.map(e => e.name)];
 const officialArgTypes = [...sOfficialArgTypes];
 officialArgTypes.forEach(t => {
 	const enumInfo = enumsInfos.find(e => e.name === t);
@@ -109,9 +110,7 @@ officialArgTypes.forEach(t => {
 	}
 });
 
-// console.log(`Official argument types: ${[...sOfficialArgTypes].join(", ")}`);
-const unofficialArgTypes = [...argTypes].filter(t => !sOfficialArgTypes.has(t));
-// console.log(`Unofficial argument types: ${unofficialArgTypes.join(", ")}`);
+// console.log(relevantEnumInfos.map(e => e.name));
 
 // Argument types: int, Actor,  UnitSpawner, ConfigNode, GameObject Vector3D, PhoneticLetters, string
 // Official argument types: CardinalDirections, FollowPath, InOrOut, bool, UnitReferenceListOtherSubs, Teams, UnitReferenceList, PlayerCommandsModes, FormationDistances, Waypoint, float, FlightStartModes, TargetingMethods, SCCPlayerSensors, FixedPoint

@@ -3,7 +3,7 @@ import { AST, getLastPos } from "./compiler/parser/ast.js";
 import { Color, ColorValue } from "./renderer/color.js";
 import { Renderer } from "./renderer/renderer.js";
 let renderer: Renderer;
-const code = `define targets: Unit = (1, 2, 10..17, 5, 18..106);
+const code = `define targets: GroundUnitSpawn = (1, 2, 10..17, 5, 18..106);
 let a = 1;
 let b = 1;
 let c = 0;
@@ -15,6 +15,8 @@ fn destroyAndAdd(a1, b1, c1) {
 
 	
 }
+
+targets[0].SetMovementSpeed
 
 while (c < 100) {
 	
