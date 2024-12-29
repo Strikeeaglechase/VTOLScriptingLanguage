@@ -715,20 +715,19 @@ class Parser {
 		this.consumeOrThrow(":");
 		const type = this.tokens.next();
 		this.consumeOrThrow("=");
-		const idLiteral = this.tokens.next();
-		const id = parseInt(idLiteral.value);
-		if (isNaN(id)) throw new Error(`Invalid numeric ${idLiteral.value} at ${idLiteral.line}:${idLiteral.column}`);
+		const rightHand = this.parseOptionallyParenthesizedList() as AST.Literal[];
+		if (rightHand.some(r => r.type != AST.Type.Literal)) throw new Error(`Invalid right hand side for declare at ${declare.line}:${declare.column}`);
 
 		const externalDeclaration: AST.Declare = {
 			type: AST.Type.Declare,
 			name: name,
-			id: id,
+			params: rightHand,
 			declareType: type,
 
 			line: declare.line,
 			column: declare.column,
-			lineEnd: idLiteral.line,
-			columnEnd: idLiteral.column + idLiteral.value.length
+			lineEnd: rightHand[rightHand.length - 1].line,
+			columnEnd: rightHand[rightHand.length - 1].column + rightHand[rightHand.length - 1].value.toString().length
 		};
 
 		return externalDeclaration;

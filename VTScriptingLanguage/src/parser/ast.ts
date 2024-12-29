@@ -246,7 +246,7 @@ export namespace AST {
 		type: Type.Declare;
 		name: Token;
 		declareType: Token;
-		id: number;
+		params: Literal[];
 	}
 
 	export type AnyAST =

@@ -381,7 +381,24 @@ class Compiler {
 		switch (ast.declareType.value) {
 			case "GV":
 				// Make var would produce the GV VTS, however Declare is telling the compiler that it already exists
-				this.context.addGV(ast.name.value, ast.id);
+				if (typeof ast.params[0].value != "number") throw new Error("GV declaration requires a number as the external id");
+				this.context.addGV(ast.name.value, ast.params[0].value as number);
+				break;
+			case "Sequence":
+				if (typeof ast.params[0].value != "number") throw new Error("Sequence declaration requires a number as the external id");
+				if (ast.params.length == 2 && typeof ast.params[1].value != "number")
+					throw new Error("Second parameter of Sequence declaration must be a number for jump flag");
+
+				const decl: FunctionDeclaration = {
+					id: ast.params[0].value as number,
+					context: new Context(this.context, this.nextId.bind(this)),
+					name: ast.name.value,
+					params: [],
+					jumpFlagId: (ast.params[1]?.value as number) ?? 0
+				};
+
+				this.functions.push(decl);
+
 				break;
 			default:
 				throw new Error(`Unhandled declare type: ${ast.declareType.value}`);
@@ -809,7 +826,7 @@ class Compiler {
 		});
 
 		this.add(this.gen.callSequence(fn.id));
-		this.splitCurrentContext(fn.jumpFlagId);
+		if (fn.jumpFlagId > 0) this.splitCurrentContext(fn.jumpFlagId);
 	}
 
 	private handlePrintFunctionCall(ast: AST.FunctionCall) {
