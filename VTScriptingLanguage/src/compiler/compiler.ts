@@ -48,8 +48,6 @@ const varIds: Record<keyof typeof vars, number> = {
 	sp: idStart + 6
 };
 
-const stackSize = 16;
-
 const stackIdx = (i: number) => `_stack_${i}`;
 
 // Traditionally function parameters are pushed onto the stack and popped within the function
@@ -74,6 +72,11 @@ interface CompilerError {
 	node: AST.AnyAST;
 }
 
+interface CompilerOptions {
+	stackSize: number;
+	generateExceptionObjectives: boolean;
+}
+
 const gameTypes = loadGameTypes();
 class Compiler {
 	private vts: VTNode;
@@ -94,6 +97,10 @@ class Compiler {
 	public gen: VTSGenerator;
 
 	public errors: CompilerError[] = [];
+	private opts: CompilerOptions = {
+		stackSize: 16,
+		generateExceptionObjectives: true
+	};
 
 	private get currentVTContext() {
 		return this.blockContextStack[this.blockContextStack.length - 1];
@@ -127,7 +134,8 @@ class Compiler {
 		return this._nextId++;
 	}
 
-	constructor(private ast: AST.Program, orgVts: VTNode) {
+	constructor(private ast: AST.Program, orgVts: VTNode, uOpts: Partial<CompilerOptions>) {
+		this.opts = { ...this.opts, ...uOpts };
 		this.vts = orgVts.clone();
 		this.gen = new VTSGenerator(this.nextId.bind(this), this.vts);
 
@@ -152,7 +160,7 @@ class Compiler {
 	}
 
 	private createStack() {
-		for (let i = 0; i < stackSize; i++) this.makeVar(stackIdx(i));
+		for (let i = 0; i < this.opts.stackSize; i++) this.makeVar(stackIdx(i));
 
 		// = Push setup =
 		{
@@ -178,7 +186,7 @@ class Compiler {
 			baseBlock.addChild(baseCaseConditional);
 			baseBlock.addChild(actionParent);
 
-			for (let i = 1; i < stackSize; i++) {
+			for (let i = 1; i < this.opts.stackSize; i++) {
 				const elseIf = new VTNode<BaseBlockKeys>("ELSE_IF");
 				elseIf.setValue("{blockName}", `stack[${i}]`);
 				elseIf.setValue("blockId", this.nextId());
@@ -225,7 +233,7 @@ class Compiler {
 			baseBlock.addChild(baseCaseConditional);
 			baseBlock.addChild(actionParent);
 
-			for (let i = 1; i < stackSize; i++) {
+			for (let i = 1; i < this.opts.stackSize; i++) {
 				const elseIf = new VTNode<BaseBlockKeys>("ELSE_IF");
 				elseIf.setValue("{blockName}", `stack[${i}]`);
 				elseIf.setValue("blockId", this.nextId());
@@ -271,8 +279,10 @@ class Compiler {
 		}
 		this.createStack();
 		// this.gen.stackOverflowExceptionObjective();
-		this.gen.exceptionObjective("Stack Overflow", this.vn(vars.stackOverflowFlag));
-		this.gen.exceptionObjective("Index Out of Bounds", this.vn(vars.indexOutOfBoundsFlag));
+		if (this.opts.generateExceptionObjectives) {
+			this.gen.exceptionObjective("Stack Overflow", this.vn(vars.stackOverflowFlag));
+			this.gen.exceptionObjective("Index Out of Bounds", this.vn(vars.indexOutOfBoundsFlag));
+		}
 
 		this.ast.body.forEach(child => this.compileAst(child));
 

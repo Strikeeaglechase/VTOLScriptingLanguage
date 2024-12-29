@@ -1,7 +1,7 @@
 import { vars } from "../compiler.js";
 import { IR, IRConditionalAction, IREvent, IREventList, IRGV, IRSequence } from "./irGenerator.js";
 
-const OPTIMIZATION_PASS_COUNT = 1;
+// const OPTIMIZATION_PASS_COUNT = 1;
 
 class IROptimizer {
 	private popAction: IRConditionalAction;
@@ -188,10 +188,10 @@ class IROptimizer {
 		return eventLists;
 	}
 
-	private optimizeEventList(events: IREventList[]) {
+	private optimizeEventList(events: IREventList[], passCount: number) {
 		if (events.length == 0) return [];
 
-		for (let i = 0; i < OPTIMIZATION_PASS_COUNT; i++) {
+		for (let i = 0; i < passCount; i++) {
 			events = this.removeFarPushPop(events);
 			events = this.removeUselessAssignments(events);
 			events = this.removeRedundantAssignments(events);
@@ -201,12 +201,12 @@ class IROptimizer {
 		return events;
 	}
 
-	public optimize() {
+	public optimize(passCount: number) {
 		this.pushAction = this.ir.conditionalActions.find(seq => seq.name == "push");
 		this.popAction = this.ir.conditionalActions.find(seq => seq.name == "pop");
 		this.resultGv = this.ir.gvs.find(gv => gv.name == vars.result);
 
-		this.ir.sequences.forEach(seq => (seq.events = this.optimizeEventList(seq.events)));
+		this.ir.sequences.forEach(seq => (seq.events = this.optimizeEventList(seq.events, passCount)));
 		// this.ir.conditionalActions.forEach(ca => {
 		// 	ca.then = this.optimizeEventList(ca.then);
 		// 	ca.else = this.optimizeEventList(ca.else);

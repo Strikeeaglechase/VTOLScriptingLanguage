@@ -10,6 +10,25 @@ import { IROptimizer } from "./compiler/ir/irOptimizer.js";
 import { IRCompiler } from "./compiler/ir/irCompiler.js";
 import { deleteCompilerNodes, encodeCompilerOwnedInformation } from "./compiler/vtsCleaner.js";
 
+interface LinkerOpts {
+	onlyAnalyze: boolean;
+	continueParseOnError: boolean;
+	optimizationPassCount: number;
+	skipIR: boolean;
+	stackSize: number;
+	generateExceptionObjectives: boolean;
+}
+
+const defaultLinkerOpts: LinkerOpts = {
+	onlyAnalyze: false,
+	continueParseOnError: true,
+	optimizationPassCount: 1,
+	skipIR: false,
+
+	stackSize: 16,
+	generateExceptionObjectives: true
+};
+
 class Linker {
 	public analyzer: Analyzer;
 	public parserErrors: ParserError[] = [];
@@ -22,14 +41,15 @@ class Linker {
 	private debugEnabled = false;
 	private debugPath = "";
 
-	public compile(source: string, vts: string, onlyAnalyze = false, continueParseOnError = true) {
+	public compile(source: string, vts: string, userOpts: Partial<LinkerOpts> = defaultLinkerOpts) {
+		const opts: LinkerOpts = { ...defaultLinkerOpts, ...userOpts };
 		const preprocessor = new Preprocessor(source);
 		const posCharStream = preprocessor.preprocess();
 
 		const tokenizer = new Tokenizer(posCharStream);
 		const tokenStream = tokenizer.parse();
 		this.debug("tokens.txt", () => Tokenizer.debug(tokenStream));
-		const parser = new Parser(tokenStream, continueParseOnError);
+		const parser = new Parser(tokenStream, opts.continueParseOnError);
 		const ast = parser.parse();
 		this.parserErrors = parser.errors;
 		this.debug("ast.json", () => JSON.stringify(ast, null, 2));
@@ -39,25 +59,25 @@ class Linker {
 		this.analyzer = new Analyzer(ast, tokenStream._all(), orgVts);
 		this.analyzer.analyze();
 
-		if (onlyAnalyze) return;
+		if (opts.onlyAnalyze) return;
 
-		const compiler = new Compiler(ast, orgVts);
+		const compiler = new Compiler(ast, orgVts, opts);
 		const compiledVts = compiler.compile();
 		encodeCompilerOwnedInformation(orgVts, compiledVts);
 		this.compilerErrors = compiler.errors;
 		this.debug("output.vts", () => writeVtsFile(compiledVts));
 
-		if (this.hasErrors) return { compiledVts, irCompiledVts: null };
+		if (this.hasErrors || opts.skipIR) return { compiledVts, irCompiledVts: null };
 
 		const irGenerator = new IRGenerator(compiledVts, compiler.gen.nodeInfos);
 		const ir = irGenerator.generateIR();
 		this.debug("ir.json", () => JSON.stringify(ir, null, 2));
 		this.debug("ir.txt", () => IRGenerator.debug(ir));
 		const irOptimizer = new IROptimizer(ir);
-		const optimizedIR = irOptimizer.optimize();
+		const optimizedIR = irOptimizer.optimize(opts.optimizationPassCount);
 		this.debug("optimizedIR.txt", () => IRGenerator.debug(optimizedIR));
 		const irCompiler = new IRCompiler(optimizedIR, orgVts);
-		const irCompiledVts = irCompiler.compile();
+		const irCompiledVts = irCompiler.compile(opts.generateExceptionObjectives);
 		encodeCompilerOwnedInformation(orgVts, irCompiledVts);
 		this.debug("irresult.vts", () => writeVtsFile(irCompiledVts));
 

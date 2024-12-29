@@ -169,7 +169,7 @@ function readVtsFile(content: string) {
 }
 
 function _writeVtsFile(node: VTNode) {
-	const content = [node.name, "{"];
+	let content = [node.name, "{"];
 	for (const [key, value] of Object.entries(node.values)) {
 		let result = value;
 		if (Array.isArray(value)) result = value.join(";") + ";";
@@ -183,7 +183,7 @@ function _writeVtsFile(node: VTNode) {
 
 	for (const child of node.children) {
 		const childContent = _writeVtsFile(child).map(l => `\t${l}`);
-		content.push(...childContent);
+		content = content.concat(childContent);
 	}
 
 	content.push("}");

@@ -27,10 +27,12 @@ class IRCompiler {
 		this.gen = new VTSGenerator(this.nextId.bind(this), this.vts);
 	}
 
-	public compile() {
+	public compile(includeExceptions: boolean = true) {
 		this.createGvs();
-		this.gen.exceptionObjective("Stack Overflow", varIds.stackOverflowFlag);
-		this.gen.exceptionObjective("Index Out of Bounds", varIds.indexOutOfBoundsFlag);
+		if (includeExceptions) {
+			this.gen.exceptionObjective("Stack Overflow", varIds.stackOverflowFlag);
+			this.gen.exceptionObjective("Index Out of Bounds", varIds.indexOutOfBoundsFlag);
+		}
 
 		this.ir.sequences.forEach(sequence => this.compileSequence(sequence));
 		this.ir.conditionalActions.forEach(ca => this.compileConditionalAction(ca));
