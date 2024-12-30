@@ -1,5 +1,6 @@
 interface GV {
 	name: string;
+	writtenName: string;
 	id: number;
 }
 
@@ -9,16 +10,20 @@ interface Iterator {
 	name: string;
 }
 
-let contextId = 0;
+// let contextId = 0;
 class Context {
-	private ctxId = contextId++;
+	// private ctxId = contextId++;
 	private gvs: GV[] = [];
 	private iterators: Iterator[] = [];
 
-	constructor(public parent: Context | null, private idGen: () => number) {}
+	constructor(public parent: Context | null, private idGen: () => number, private ctxPrefix: string) {}
 
 	public rewriteName(name: string) {
-		return `${this.ctxId}_${name}`;
+		return this.ctxPrefix ? `${this.ctxPrefix}_${name}` : name;
+	}
+
+	public hasLocalGv(name: string) {
+		return this.gvs.some(gv => gv.name === name);
 	}
 
 	public hasGV(name: string) {
@@ -42,8 +47,9 @@ class Context {
 	}
 
 	public addGV(name: string, forcedId?: number) {
-		if (this.hasGV(name)) throw new Error(`Variable "${name}" already exists`);
-		this.gvs.push({ name: name, id: forcedId ?? this.idGen() });
+		const localName = this.rewriteName(name);
+		if (this.hasLocalGv(name)) throw new Error(`Variable "${name}" already exists`);
+		this.gvs.push({ name: name, writtenName: localName, id: forcedId ?? this.idGen() });
 		return this.getGV(name);
 	}
 

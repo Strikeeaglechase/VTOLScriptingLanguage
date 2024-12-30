@@ -139,7 +139,7 @@ class Compiler {
 		this.vts = orgVts.clone();
 		this.gen = new VTSGenerator(this.nextId.bind(this), this.vts);
 
-		const context = new Context(null, this.nextId.bind(this));
+		const context = new Context(null, this.nextId.bind(this), "");
 		this.contextStack.push(context);
 	}
 
@@ -391,7 +391,7 @@ class Compiler {
 
 				const decl: FunctionDeclaration = {
 					id: ast.params[0].value as number,
-					context: new Context(this.context, this.nextId.bind(this)),
+					context: new Context(this.context, this.nextId.bind(this), ""),
 					name: ast.name.value,
 					params: [],
 					jumpFlagId: (ast.params[1]?.value as number) ?? 0
@@ -778,7 +778,7 @@ class Compiler {
 		const fnSeq = this.gen.sequence(ast.name.value, forceId);
 		const { jumpFlagValue, condId } = !!ast.noWait ? { jumpFlagValue: -1, condId: -1 } : this.getJumpFlagConditional();
 
-		const fnCtx = new Context(this.context, this.nextId.bind(this));
+		const fnCtx = new Context(this.context, this.nextId.bind(this), ast.name.value);
 		const declaration: FunctionDeclaration = {
 			name: ast.name.value,
 			id: fnSeq.getValue("id") as number,
@@ -864,16 +864,13 @@ class Compiler {
 	}
 
 	private makeVar(name: string, forcedId?: number): GV {
-		// if(th)
-		if (this.context.hasGV(name)) {
-			throw new Error(`Variable "${name}" already exists`);
-		}
+		if (this.context.hasLocalGv(name)) throw new Error(`Variable "${name}" already exists`);
 
 		const gvVar = this.context.addGV(name, forcedId);
 
 		const gv = new VTNode<GVKeys>("gv");
 		// const dataStr = `${id};${name};;0;`;
-		const data = [gvVar.id, name, null, 0];
+		const data = [gvVar.id, gvVar.writtenName, null, 0];
 		gv.setValue("data", data);
 		const gvContainer = this.vts.getNode("GlobalValues");
 		gvContainer.addChild(gv);
