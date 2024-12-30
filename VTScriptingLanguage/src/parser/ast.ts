@@ -123,7 +123,7 @@ export namespace AST {
 		type: Type.FunctionDeclaration;
 		name: Token;
 		forceId: Token;
-		noWait: boolean;
+		noWait: Token;
 		parameters: Token[];
 		body: AnyAST[];
 	}

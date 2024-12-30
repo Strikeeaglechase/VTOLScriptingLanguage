@@ -1,8 +1,12 @@
-define t: AIUnitSpawn = 5;
+#define goober AIUnitSpawn
+
+define t: goober = 5;
 
 fn noWait testFunction() = 5 {
 	print("Hello World!");
 	// let b = 42 + 5;
+
+	t.SetEngageEnemies(false);
 
 	t.DestroySelf();
 }

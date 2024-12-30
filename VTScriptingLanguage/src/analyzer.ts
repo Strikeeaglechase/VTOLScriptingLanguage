@@ -85,6 +85,7 @@ class Analyzer {
 	}
 
 	private analyzeAst(ast: AST.AnyAST) {
+		if (!ast) return;
 		// Load all context's and the variables in them
 		if (!ast.lineEnd) {
 			const end = getLastPos(ast);
@@ -263,6 +264,8 @@ class Analyzer {
 				return SemanticTokenTypes.number;
 			case TokenType.LiteralString:
 				return SemanticTokenTypes.string;
+			case TokenType.LiteralBoolean:
+				return SemanticTokenTypes.type;
 			case TokenType.Identifier:
 				return this.findIdentifierSemantics(token);
 			case TokenType.Comment:
@@ -302,6 +305,7 @@ class Analyzer {
 				throw new Error("Unknown identifier in MethodCall");
 			case AST.Type.FunctionDeclaration:
 				if (matchingAst.parameters.includes(token)) return SemanticTokenTypes.parameter;
+				if (matchingAst.noWait == token) return SemanticTokenTypes.keyword;
 				return SemanticTokenTypes.function;
 			case AST.Type.ForEach:
 				return SemanticTokenTypes.variable;
@@ -309,6 +313,10 @@ class Analyzer {
 				if (matchingAst.property == token) return SemanticTokenTypes.property;
 				if (matchingAst.target == token) return SemanticTokenTypes.class;
 				throw new Error("Unknown identifier in PropertyAccess");
+			case AST.Type.FunctionCall:
+				if (matchingAst.target == token) return SemanticTokenTypes.function;
+				// if(matchingAst.arguments.includes(token)) return SemanticTokenTypes.parameter;
+				throw new Error("Unknown identifier in FunctionCall");
 
 			default:
 				console.log(`Identifier semantics not implemented for ${matchingAst.type}`);

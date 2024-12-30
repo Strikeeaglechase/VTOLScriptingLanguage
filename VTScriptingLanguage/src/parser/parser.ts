@@ -602,9 +602,9 @@ class Parser {
 	private handleFunctionDeclaration() {
 		const fn = this.tokens.next();
 		let name = this.tokens.next();
-		let noWait = false;
+		let noWait: Token;
 		if (name.value == "noWait") {
-			noWait = true;
+			noWait = name;
 			name = this.tokens.next();
 		}
 

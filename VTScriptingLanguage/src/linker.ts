@@ -49,7 +49,9 @@ class Linker {
 		const tokenizer = new Tokenizer(posCharStream);
 		const tokenStream = tokenizer.parse();
 		this.debug("tokens.txt", () => Tokenizer.debug(tokenStream));
-		const parser = new Parser(tokenStream, opts.continueParseOnError);
+		const expandedDefinesTokenStream = preprocessor.expandDefines(tokenStream);
+		this.debug("expandedDefines.txt", () => Tokenizer.debug(expandedDefinesTokenStream));
+		const parser = new Parser(expandedDefinesTokenStream, opts.continueParseOnError);
 		const ast = parser.parse();
 		this.parserErrors = parser.errors;
 		this.debug("ast.json", () => JSON.stringify(ast, null, 2));

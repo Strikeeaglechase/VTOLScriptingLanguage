@@ -776,7 +776,7 @@ class Compiler {
 	private handleFunctionDeclaration(ast: AST.FunctionDeclaration) {
 		const forceId: number = ast.forceId && !isNaN(+ast.forceId.value) ? +ast.forceId.value : null;
 		const fnSeq = this.gen.sequence(ast.name.value, forceId);
-		const { jumpFlagValue, condId } = ast.noWait ? { jumpFlagValue: -1, condId: -1 } : this.getJumpFlagConditional();
+		const { jumpFlagValue, condId } = !!ast.noWait ? { jumpFlagValue: -1, condId: -1 } : this.getJumpFlagConditional();
 
 		const fnCtx = new Context(this.context, this.nextId.bind(this));
 		const declaration: FunctionDeclaration = {
