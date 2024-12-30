@@ -601,13 +601,23 @@ class Parser {
 
 	private handleFunctionDeclaration() {
 		const fn = this.tokens.next();
-		const name = this.tokens.next();
+		let name = this.tokens.next();
+		let noWait = false;
+		if (name.value == "noWait") {
+			noWait = true;
+			name = this.tokens.next();
+		}
 
 		const params: Token[] = [];
 		this.consumeOrThrow("(");
 		while (!this.maybeConsume(")")) {
 			if (this.maybeConsume(",")) continue;
 			params.push(this.tokens.next());
+		}
+
+		let forceId: Token = null;
+		if (this.maybeConsume("=")) {
+			forceId = this.tokens.next();
 		}
 
 		const body = this.parseBracketedBody();
@@ -617,6 +627,8 @@ class Parser {
 			name: name,
 			body: body,
 			parameters: params,
+			noWait: noWait,
+			forceId: forceId,
 
 			line: fn.line,
 			column: fn.column,

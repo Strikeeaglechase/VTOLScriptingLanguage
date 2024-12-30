@@ -1,3 +1,8 @@
-// declare out: Sequence = (42, 10031);
+define t: AIUnitSpawn = 5;
 
-// out();
+fn noWait testFunction() = 5 {
+	print("Hello World!");
+	// let b = 42 + 5;
+
+	t.DestroySelf();
+}

@@ -19,6 +19,7 @@ class IROptimizer {
 		eventLists.forEach(el => {
 			const newEvents: IREvent[] = [];
 			const events = el.events;
+			if (events.length == 0) return;
 
 			for (let i = 0; i < events.length - 1; i++) {
 				const current = events[i];
@@ -121,6 +122,7 @@ class IROptimizer {
 	private removeRedundantAssignments(eventLists: IREventList[]) {
 		eventLists.forEach(el => {
 			const events = el.events;
+			if (events.length == 0) return;
 			const newEvents: IREvent[] = [];
 			for (let i = 0; i < events.length; i++) {
 				if (events[i].method != "gvSet" || events[i].args[0].value != this.resultGv.id) {

@@ -122,7 +122,8 @@ export namespace AST {
 	export interface FunctionDeclaration extends Node {
 		type: Type.FunctionDeclaration;
 		name: Token;
-
+		forceId: Token;
+		noWait: boolean;
 		parameters: Token[];
 		body: AnyAST[];
 	}

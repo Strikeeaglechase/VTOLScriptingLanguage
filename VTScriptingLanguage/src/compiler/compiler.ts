@@ -774,8 +774,9 @@ class Compiler {
 	}
 
 	private handleFunctionDeclaration(ast: AST.FunctionDeclaration) {
-		const fnSeq = this.gen.sequence(ast.name.value);
-		const { jumpFlagValue, condId } = this.getJumpFlagConditional();
+		const forceId: number = ast.forceId && !isNaN(+ast.forceId.value) ? +ast.forceId.value : null;
+		const fnSeq = this.gen.sequence(ast.name.value, forceId);
+		const { jumpFlagValue, condId } = ast.noWait ? { jumpFlagValue: -1, condId: -1 } : this.getJumpFlagConditional();
 
 		const fnCtx = new Context(this.context, this.nextId.bind(this));
 		const declaration: FunctionDeclaration = {
@@ -804,7 +805,7 @@ class Compiler {
 
 			ast.body.forEach(child => this.compileAst(child));
 
-			this.add(this.gen.gvSet(this.vn(vars.jumpFlag), jumpFlagValue));
+			if (!ast.noWait) this.add(this.gen.gvSet(this.vn(vars.jumpFlag), jumpFlagValue));
 		});
 		this.contextStack.pop();
 	}

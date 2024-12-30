@@ -90,30 +90,30 @@ class VTSGenerator {
 	}
 
 	@Track
-	public sequence(name: string, addToSeqList = true, withBaseEvent = true) {
+	public sequence(name: string, forceId?: number) {
 		const node = new VTNode<SequenceKeys>("SEQUENCE");
-		node.setValue("id", this.nextId());
+		node.setValue("id", forceId ?? this.nextId());
 		node.setValue("sequenceName", name);
 		node.setValue("whileLoop", false);
 		node.setValue("startImmediately", false);
 
-		if (withBaseEvent) {
-			const baseEvent = new VTNode<EventKeys>("EVENT");
-			baseEvent.setValue("delay", 0);
-			baseEvent.setValue("nodeName", "Base Event");
-			node.addChild(baseEvent);
+		// if (withBaseEvent) {
+		const baseEvent = new VTNode<EventKeys>("EVENT");
+		baseEvent.setValue("delay", 0);
+		baseEvent.setValue("nodeName", "Base Event");
+		node.addChild(baseEvent);
 
-			const eventInfo = new VTNode<"eventName">("EventInfo");
-			eventInfo.setValue("eventName", null);
-			baseEvent.addChild(eventInfo);
-		}
+		const eventInfo = new VTNode<"eventName">("EventInfo");
+		eventInfo.setValue("eventName", null);
+		baseEvent.addChild(eventInfo);
+		// }
 
-		if (addToSeqList) {
-			const parent = this.vts.getNode("EventSequences");
-			parent.addChild(node);
-			// console.log(parent);
-			// console.log(this.vts.getAllChildrenWithName("SEQUENCE").map(s => s.getValue("sequenceName")));
-		}
+		// if (addToSeqList) {
+		const parent = this.vts.getNode("EventSequences");
+		parent.addChild(node);
+		// console.log(parent);
+		// console.log(this.vts.getAllChildrenWithName("SEQUENCE").map(s => s.getValue("sequenceName")));
+		// }
 
 		return node;
 	}
