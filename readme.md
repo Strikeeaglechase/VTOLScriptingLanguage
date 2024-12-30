@@ -6,6 +6,7 @@ A programming language that targets VTS, VTOL VR's mission format. More than any
 -  [Options](#options)
 -  [Language Overview](#language)
    -  [Basic Structure](#basic-structure)
+   -  [Functions](#functions)
    -  [Units](#units)
    -  [Looping](#looping)
    -  [Externals](#externals)
