@@ -4,8 +4,8 @@
 	"description": "",
 	"main": "index.js",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1",
-		"run": "cd dist && nodemon index.js -w ../source -w . -e js,vtsl"
+		"run": "cd dist && nodemon index.js -w ../source -w . -e js,vtsl",
+		"build": "npm i --include=dev && npx tsc"
 	},
 	"keywords": [],
 	"type": "module",
@@ -19,6 +19,7 @@
 	},
 	"devDependencies": {
 		"@types/command-line-args": "^5.2.3",
-		"@types/command-line-usage": "^5.0.4"
+		"@types/command-line-usage": "^5.0.4",
+		"typescript": "^5.7.2"
 	}
 }
