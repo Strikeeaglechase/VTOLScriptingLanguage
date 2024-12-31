@@ -74,7 +74,7 @@ All variables are `number`'s and thus don't need a type. Functions are defined w
 
 ## Functions
 
-Functions are declared via the `fn` keyword, and are created in VTOL as Sequences
+Functions are declared via the `fn` keyword, and are created in VTOL as ConditionalActions
 
 ```ts
 fn myFunction(a, b) {
@@ -84,7 +84,7 @@ fn myFunction(a, b) {
 let result = myFunction(1, 2)
 ```
 
-You may define a constant id for the generated sequence for cases where you intend to trigger VTSL yourself from custom logic defined in VTOL.
+If you would like to reference a function externally (ie to setup a trigger/custom VTOL logic that VTSL doesn't support) you may define a static ID for a function, and a EventSequence will be created for it
 
 ```ts
 fn myFunction(a, b) = 42 {
@@ -93,14 +93,6 @@ fn myFunction(a, b) = 42 {
 ```
 
 The sequence here will have the ID 42
-
-By default the compiler will wait for each function to complete before continuing as you would expect from a synchronous program, however it must introduce extra logic to do this as vtol natively runs sequences asynchronously. If you wish you may disable this safeguard, however this has a **high likelihood of unexpected results**, there still is only one shared stack, asynchronous execution can easily cause bugs.
-
-```ts
-fn noWait myFunction(a, b) {
-
-}
-```
 
 ## Units
 
@@ -114,7 +106,12 @@ The above defines a unit list `targets`, units must be typed so that methods can
 
 Units can be indexed as expected, however if an index is not provided the method will be called on every unit, so `targets.DestroySelf();` would destroy all units in that list.
 
-For conditional methods (methods that return a bool) if an index is not provided the return is the logical and of calling the method on every unit.
+If you do not provide an index for a conditional method (a method that return a bool) the default is to return `true` when every unit passes the condition, however the following syntax may be used:
+
+```ts
+if (targets.any.SC_IsAlive()) print("Something is alive!");
+if (targets.all.SC_IsAlive()) print("Everything is alive!"); // Default behavior
+```
 
 Many methods require an enum value as an argument, in such cases (for instance `SetMovementSpeed`), simply use the enum like `MoveSpeeds.Slow_10`.
 

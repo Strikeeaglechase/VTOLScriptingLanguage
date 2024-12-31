@@ -703,13 +703,19 @@ class Compiler {
 	}
 
 	private handleFunctionDeclaration(ast: AST.FunctionDeclaration) {
-		const forceId: number = ast.forceId && !isNaN(+ast.forceId.value) ? +ast.forceId.value : null;
-		const fnSeq = this.gen.caSequence(ast.name.value, forceId);
+		const seqId: number = ast.forceId && !isNaN(+ast.forceId.value) ? +ast.forceId.value : null;
+		const fnCaSeq = this.gen.caSequence(ast.name.value);
+		if (seqId) {
+			const seq = this.gen.sequence(ast.name.value, seqId);
+			this.withContext(seq, () => {
+				this.add(this.gen.fireConditionalAction(fnCaSeq.getValue("id")));
+			});
+		}
 
 		const fnCtx = new Context(this.context, this.nextId.bind(this), ast.name.value);
 		const declaration: FunctionDeclaration = {
 			name: ast.name.value,
-			id: fnSeq.getValue("id") as number,
+			id: fnCaSeq.getValue("id") as number,
 			context: fnCtx,
 			params: []
 		};
@@ -722,7 +728,7 @@ class Compiler {
 			declaration.params.push(newVar);
 		});
 
-		this.withContext(fnSeq, () => {
+		this.withContext(fnCaSeq, () => {
 			if (functionParamMode == FunctionParamMode.Stack) {
 				ast.parameters.reverse().forEach(param => {
 					this.pop();

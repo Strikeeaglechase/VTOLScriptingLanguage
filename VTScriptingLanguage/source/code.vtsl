@@ -1,4 +1,6 @@
 define targets: AIUnitSpawn = (1, 2, 5);
 
-if (targets.any.SC_IsAlive()) print("Something is alive!");
-if (targets.all.SC_IsAlive()) print("Everything is alive!");
+
+fn doSomething() = 42 {
+	print("Something was done!");
+}
