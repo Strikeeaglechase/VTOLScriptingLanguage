@@ -21,7 +21,7 @@ const options: (OptionDefinition & { description: string })[] = [
 		defaultValue: false,
 		description: `Skip IR compilation (effectively same as --opt 0, but entirely disables IR logic)`
 	},
-	{ name: "stack-size", type: Number, defaultValue: 16, description: `Set the stack size for the compiler` },
+	{ name: "stack-size", type: Number, defaultValue: 16, description: `Set the stack size for the compiler (default=16)` },
 	{ name: "no-except", type: Boolean, defaultValue: false, description: `Disable stack overflow and OOB objective's from being included in the VTS file` },
 	{ name: "help", alias: "h", type: Boolean, defaultValue: false, description: `Print this help message` }
 ];

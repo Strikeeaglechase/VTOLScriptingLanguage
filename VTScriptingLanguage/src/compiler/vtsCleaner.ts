@@ -47,7 +47,8 @@ export function encodeCompilerOwnedInformation(orgVts: VTNode, resultVts: VTNode
 	const resultGv = gvs.find(gv => gv.getValue("data")[0] == varIds.result);
 
 	const data = resultGv.getValue("data");
-	data[2] = JSON.stringify(info);
+	const b64Info = Buffer.from(JSON.stringify(info)).toString("base64");
+	data[2] = b64Info;
 	resultGv.setValue("data", data, true);
 }
 
@@ -69,7 +70,8 @@ export function deleteCompilerNodes(vts: VTNode) {
 	if (!resultGv) return;
 
 	try {
-		const info: CompilerOwnedNodeList = JSON.parse(resultGv.getValue("data")[2]);
+		const b64Info = resultGv.getValue("data")[2];
+		const info: CompilerOwnedNodeList = JSON.parse(Buffer.from(b64Info, "base64").toString("utf-8"));
 		deleteNodes(vts, "OBJECTIVES", "objectiveID", info.objectives);
 		deleteNodes(vts, "OBJECTIVES_OPFOR", "objectiveID", info.objectives);
 		deleteNodes(vts, "Conditionals", "id", info.conditionals);

@@ -164,6 +164,9 @@ class Analyzer {
 
 		if (!isPartOfDotExpression) return null;
 
+		const maybeModifier = this.tokens[index];
+		if (maybeModifier.type == TokenType.Identifier && (maybeModifier.value == "any" || maybeModifier.value == "all")) index -= 2;
+
 		const maybeIndexExpr = this.tokens[index];
 		if (maybeIndexExpr.type == TokenType.Symbol && maybeIndexExpr.value == "]") {
 			while (this.tokens[index].value != "[") index--;
@@ -226,7 +229,7 @@ class Analyzer {
 
 		const partialMethod = this.identifyPartialMethodCall(line, column, [this.contexts[0], ...contextRange.map(ctx => ctx.context)]);
 		if (partialMethod) {
-			return partialMethod.map(m => {
+			const pMethods: SymbolInformation[] = partialMethod.map(m => {
 				return {
 					name: m.name,
 					type: "function",
@@ -235,6 +238,11 @@ class Analyzer {
 					intended: !!m.decorator
 				};
 			});
+
+			pMethods.push({ name: "any", type: "variable" });
+			pMethods.push({ name: "all", type: "variable" });
+
+			return pMethods;
 		}
 
 		const vars: Set<string> = new Set();
@@ -329,6 +337,7 @@ class Analyzer {
 			case AST.Type.MethodCall:
 				if (matchingAst.method == token) return SemanticTokenTypes.method;
 				if (matchingAst.target == token) return SemanticTokenTypes.variable;
+				if (matchingAst.modifier == token) return SemanticTokenTypes.keyword;
 				throw new Error("Unknown identifier in MethodCall");
 			case AST.Type.FunctionDeclaration:
 				if (matchingAst.parameters.includes(token)) return SemanticTokenTypes.parameter;
