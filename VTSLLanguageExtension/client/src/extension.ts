@@ -1,18 +1,9 @@
-/* --------------------------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See License.txt in the project root for license information.
- * ------------------------------------------------------------------------------------------ */
-
 import * as path from "path";
-import { Duplex } from "stream";
-import { workspace, ExtensionContext } from "vscode";
+import { ExtensionContext } from "vscode";
 import { WebSocket } from "ws";
 import {
-	InitializeResult,
 	LanguageClient,
 	LanguageClientOptions,
-	ServerOptions,
-	TransportKind,
 } from "vscode-languageclient/node";
 
 let client: LanguageClient;
@@ -24,10 +15,11 @@ function connectToServer(url: string) {
 
 export function activate(context: ExtensionContext) {
 	console.log(`VTSL Language server is starting...`);
-	// Options to control the language client
 	const clientOptions: LanguageClientOptions = {
 		// Register the server for plain text documents
-		documentSelector: [{ scheme: "file", language: "plaintext" }],
+		documentSelector: [
+			{ scheme: "file", language: "vtsl", pattern: "**/*.vtsl" },
+		],
 		synchronize: {
 			// Notify the server about file changes to '.clientrc files contained in the workspace
 			// fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
