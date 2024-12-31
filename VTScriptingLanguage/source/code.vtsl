@@ -1,3 +1,4 @@
-//debug:test2
+define targets: AIUnitSpawn = (1, 2, 5);
 
-if(rand(50)) print("Hello World!");
+if (targets.any.SC_IsAlive()) print("Something is alive!");
+if (targets.all.SC_IsAlive()) print("Everything is alive!");

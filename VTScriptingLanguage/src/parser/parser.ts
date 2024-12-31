@@ -326,13 +326,19 @@ class Parser {
 		}
 
 		this.consumeOrThrow(".");
-		const property = this.tokens.peek();
+		let property = this.tokens.peek();
 		if (property.type != TokenType.Identifier) {
 			// Misstyped property, should error but lets gracefully exit so that we can provide autocomplete
 			return null;
 			// throw new Error(`Invalid property ${property.value} at ${property.line}:${property.column}`);
 		}
 		this.tokens.next();
+
+		let middle: Token = null;
+		if (this.maybeConsume(".")) {
+			middle = property;
+			property = this.tokens.next();
+		}
 
 		const nextTkn = this.tokens.peek();
 		if (nextTkn.value == "(") {
@@ -344,6 +350,7 @@ class Parser {
 				method: property,
 				arguments: args,
 				indexer: indexer,
+				modifier: middle,
 
 				line: identifier.line,
 				column: identifier.column,

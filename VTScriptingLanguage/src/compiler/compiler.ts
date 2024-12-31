@@ -581,6 +581,7 @@ class Compiler {
 		const conds: VTNode<CompKeys>[] = [];
 
 		const isMinusOne = this.gen.gvComp(this.vn(vars.result), -1, "Equals");
+		const isMinusTwo = this.gen.gvComp(this.vn(vars.result), -2, "Equals");
 
 		const unitComps: number[] = unitList.ids.map(id => {
 			const comp = this.gen.unitComp(method, id, false, params);
@@ -588,9 +589,13 @@ class Compiler {
 			return comp.getValue("id");
 		});
 
-		const allMatchAnd = this.gen.compAnd([isMinusOne.getValue("id"), ...unitComps]);
-		conds.push(isMinusOne, allMatchAnd);
+		const allMatchAnd = this.gen.compAnd([isMinusOne.getValue("id"), ...unitComps]); // When result is -1, check condition on every unit
+		const anyMatchOr = this.gen.compOr(unitComps);
+		const anyMatchOrAndTwo = this.gen.compAnd([anyMatchOr.getValue("id"), isMinusTwo.getValue("id")]); // When result is -2, check if any unit matches
+
+		conds.push(isMinusOne, isMinusTwo, anyMatchOr, anyMatchOrAndTwo, allMatchAnd);
 		resultOrBlockIds.push(allMatchAnd.getValue("id"));
+		resultOrBlockIds.push(anyMatchOrAndTwo.getValue("id"));
 
 		unitList.ids.forEach((id, idx) => {
 			const idMatch = this.gen.gvComp(this.vn(vars.result), idx, "Equals");
@@ -674,13 +679,23 @@ class Compiler {
 		// }
 		const ulMethod = this.getOrCreateMethodCall(methodInfo, ast, unitList);
 
+		if (ast.modifier) {
+			if (iterator || ast.indexer) throw new Error("Cannot use modifier with iterator or indexer");
+			if (ast.modifier.value != "all" && ast.modifier.value != "any")
+				throw new Error(`Unsupported modifier: "${ast.modifier.value}", expected "all" or "any"`);
+		}
+
 		if (iterator) {
 			this.add(this.gen.gvCopy(iterator.backingGv.id, this.vn(vars.result)));
 		} else if (ast.indexer) {
 			this.compileAst(ast.indexer);
 			this.pop();
 		} else {
-			this.add(this.gen.gvSet(this.vn(vars.result), -1));
+			if (!ast.modifier || ast.modifier.value == "all") {
+				this.add(this.gen.gvSet(this.vn(vars.result), -1));
+			} else {
+				this.add(this.gen.gvSet(this.vn(vars.result), -2));
+			}
 		}
 
 		this.add(this.gen.fireConditionalAction(ulMethod.actionId));

@@ -1,5 +1,7 @@
 import fs from "fs";
 
+// Setup non-unit events
+
 import { Emulator } from "./emulator/emulator.js";
 import { UnitTester } from "./unitTests.js";
 import { writeVtsFile } from "./vtsParser.js";
@@ -53,7 +55,7 @@ async function run() {
 	fs.writeFileSync("../debug/emulator.txt", emulator.execLog);
 
 	const unitTests = new UnitTester();
-	unitTests.runTests();
+	// unitTests.runTests();
 }
 
 run();

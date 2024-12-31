@@ -173,6 +173,7 @@ export namespace AST {
 
 		target: Token;
 		method: Token;
+		modifier: Token;
 		arguments: AnyAST[];
 
 		indexer: AnyAST | null;
