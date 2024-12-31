@@ -7,6 +7,7 @@ A programming language that targets VTS, VTOL VR's mission format. More than any
 -  [Language Overview](#language)
    -  [Basic Structure](#basic-structure)
    -  [Functions](#functions)
+   -  [Builtins](#built-in-functions)
    -  [Units](#units)
    -  [Looping](#looping)
    -  [Externals](#externals)
@@ -29,16 +30,16 @@ node ./dist/compile.js --input [SOURCE] --vts [SOURCE_VTS]
 
     -i, --input string    Input VTSL file
     -o, --output string   Output VTS file
-    -v, --vts string      Source VTS to compile into
+    --vts string          Source VTS to compile into
     --strip string        Deletes all VTSL code from the VTS file, leaving the
-    							original VTS
+    								original VTS
     -d, --debug           Enable debug files
-    --no-optimize         Disable optimization
-    --no-ir               Skip IR compilation (effectively same as --no-optimize,
-    							but entirely disables IR logic)
-    --stack-size number   Set the stack size for the compiler
+    --opt number          Sets optimization level (default=2)
+    --no-ir               Skip IR compilation (effectively same as --opt 0, but
+    								entirely disables IR logic)
+    --stack-size number   Set the stack size for the compiler (default=16)
     --no-except           Disable stack overflow and OOB objective's from being
-    							included in the VTS file
+    								included in the VTS file
     -h, --help            Print this help message
 
 # Language
@@ -49,7 +50,7 @@ VTSL uses C-like syntax, so typical curly braces and semicolons. Generally speak
 
 Below is the code to kill tanks in order of the fibonacci sequence
 
-```ts
+```rust
 define targets: AIUnitSpawn = (1, 2, 10..17, 5, 18..106);
 let a = 1;
 let b = 1;
@@ -76,7 +77,7 @@ All variables are `number`'s and thus don't need a type. Functions are defined w
 
 Functions are declared via the `fn` keyword, and are created in VTOL as ConditionalActions
 
-```ts
+```rust
 fn myFunction(a, b) {
 	return a + b;
 }
@@ -86,13 +87,27 @@ let result = myFunction(1, 2)
 
 If you would like to reference a function externally (ie to setup a trigger/custom VTOL logic that VTSL doesn't support) you may define a static ID for a function, and a EventSequence will be created for it
 
-```ts
+```rust
 fn myFunction(a, b) = 42 {
 	return a + b;
 }
 ```
 
 The sequence here will have the ID 42
+
+## Built in Functions
+
+There are currently two built in functions
+
+`print("message")` will create a display message popup, useful for debugging
+
+`rand(num)` returns true, where `num` is a number 0-100 being the % chance
+
+```rust
+if (rand(50)) print("Hello world");
+```
+
+The above would have a 50% chance of printing "Hello world"
 
 ## Units
 
@@ -106,7 +121,7 @@ The above defines a unit list `targets`, units must be typed so that methods can
 
 Units can be indexed as expected, however if an index is not provided the method will be called on every unit, so `targets.DestroySelf();` would destroy all units in that list.
 
-If you do not provide an index for a conditional method (a method that return a bool) the default is to return `true` when every unit passes the condition, however the following syntax may be used:
+If you do not provide an index for a conditional method (a method that returns a bool) the default is to return `true` when every unit passes the condition, however the following syntax may be used:
 
 ```ts
 if (targets.any.SC_IsAlive()) print("Something is alive!");
@@ -119,6 +134,14 @@ Many methods require an enum value as an argument, in such cases (for instance `
 > It is important to note that **method arguments must be constant**, this is a limitation of VTOL.
 
 ## Looping
+
+In order to execute code once per frame create a function named `loop`:
+
+```rust
+fn loop() {
+	print("Hello World");
+}
+```
 
 `while(cond)`, `for(init, cond, iter)` loops both work as expected. **Recursion does not work**, having a function call itself will (probably) lead to issues.
 Iterating over a unit list can be done with the following syntax:
@@ -137,23 +160,17 @@ In the above `t` will be set to each unit one by one. In practice this nearly de
 It is possible to interact with GVs and Sequences that you have defined in the VTOL editor with the following:
 
 ```js
-declare x: GV = 42;
+declare x: GV = 42; // Reference by id
+declare x: GV = "my_gv_x"; // Reference by name
 ```
 
-In the above `x` will now be accessible as a variable, and it will reference the GV with an ID of 42.
+In the above `x` will now be accessible as a variable.
 
 A simple sequence is defined the same way:
 
 ```js
-declare someAction: Sequence = 42;
+declare someAction: Sequence = 42; // Reference by id
+declare someAction: Sequence = "custom_action"; // Reference by name
 ```
 
-The above would let you now call the sequence with id 42 via a function call like `someAction()`.
-
-Sequences in vtol execute in an asynchronous order, so by default calling `someAction` would not provide any guarantees about execution order and lead to the program continuing on while the events in someAction are ran. If this is problematic you may declare a "jump flag value" for the program to wait for:
-
-```js
-declare someAction: Sequence = (42, 123);
-```
-
-Now when `someAction` is called the program will wait until you set the GV `c_jumpFlag` to 123, you must set this or program execution will not resume.
+The above would let you now call the sequence via a function call like `someAction()`.

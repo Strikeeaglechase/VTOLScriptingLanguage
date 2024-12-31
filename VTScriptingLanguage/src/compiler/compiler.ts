@@ -1,6 +1,6 @@
 import { AST } from "../parser/ast.js";
 import { stringifyVTValue, VTNode, VTValue } from "../vtsParser.js";
-import { BaseBlockKeys, CompKeys, GVKeys } from "../vtTypes.js";
+import { BaseBlockKeys, CompKeys, GVKeys, SequenceKeys } from "../vtTypes.js";
 import { Context, GV, Iterator } from "./context.js";
 import { loadGameTypes, Method } from "./gameTypes.js";
 import { convertAstToMethodParameters, convertAstToParamInfo } from "./vtArgConverter.js";
@@ -64,6 +64,7 @@ interface FunctionDeclaration {
 	id: number;
 	context: Context;
 	params: GV[];
+	type: "sequence" | "conditionalAction";
 }
 
 interface CompilerError {
@@ -247,7 +248,18 @@ class Compiler {
 
 		this.ast.body.forEach(child => this.compileAst(child));
 
-		this.add(this.gen.gvSet(this.vn(vars.exitFlag), -1)); // jumpFlag=-1 = halt
+		const loopFn = this.functions.find(f => f.name == "loop");
+		if (loopFn) {
+			const loopSeq = this.gen.sequence("loop");
+			this.withContext(loopSeq, () => {
+				this.add(this.gen.fireConditionalAction(loopFn.id));
+				this.add(this.gen.callSequence(loopSeq.getValue("id")));
+			});
+
+			this.add(this.gen.callSequence(loopSeq.getValue("id")));
+		} else {
+			this.add(this.gen.gvSet(this.vn(vars.exitFlag), -1)); // jumpFlag=-1 = halt
+		}
 
 		return this.vts;
 	}
@@ -342,17 +354,33 @@ class Compiler {
 		switch (ast.declareType.value) {
 			case "GV":
 				// Make var would produce the GV VTS, however Declare is telling the compiler that it already exists
-				if (typeof ast.params[0].value != "number") throw new Error("GV declaration requires a number as the external id");
-				this.context.addGV(ast.name.value, ast.params[0].value as number);
+				let gvId = ast.params[0].value;
+				if (typeof gvId == "string") {
+					const gvs = this.vts.getNode("GlobalValues").getChildrenWithName("gv");
+					const refedGv = gvs.find(gv => gv.getValue("data")[1] == gvId);
+					if (!refedGv) throw new Error(`Global value "${gvId}" not found`);
+					gvId = refedGv.getValue("data")[0];
+				}
+
+				if (typeof gvId != "number") throw new Error("GV declaration requires a number or valid name as the external id");
+				this.context.addGV(ast.name.value, gvId);
 				break;
 			case "Sequence":
+				let seqId = ast.params[0].value;
+				if (typeof seqId == "string") {
+					const seqs = this.vts.getNode("EventSequences").getChildrenWithName("SEQUENCE") as VTNode<SequenceKeys>[];
+					const refedSeq = seqs.find(seq => seq.getValue("sequenceName") == seqId);
+					if (!refedSeq) throw new Error(`Sequence "${seqId}" not found`);
+					seqId = refedSeq.getValue("id");
+				}
 				if (typeof ast.params[0].value != "number") throw new Error("Sequence declaration requires a number as the external id");
 
 				const decl: FunctionDeclaration = {
 					id: ast.params[0].value as number,
 					context: new Context(this.context, this.nextId.bind(this), ""),
 					name: ast.name.value,
-					params: []
+					params: [],
+					type: "sequence"
 				};
 
 				this.functions.push(decl);
@@ -717,7 +745,8 @@ class Compiler {
 			name: ast.name.value,
 			id: fnCaSeq.getValue("id") as number,
 			context: fnCtx,
-			params: []
+			params: [],
+			type: "conditionalAction"
 		};
 
 		this.functions.push(declaration);
@@ -759,7 +788,8 @@ class Compiler {
 			}
 		});
 
-		this.add(this.gen.fireConditionalAction(fn.id));
+		if (fn.type == "sequence") this.add(this.gen.callSequence(fn.id));
+		else this.add(this.gen.fireConditionalAction(fn.id));
 	}
 
 	private handleRandFunctionCall(ast: AST.FunctionCall) {

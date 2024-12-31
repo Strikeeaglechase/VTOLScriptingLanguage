@@ -17,6 +17,7 @@ import { Linker } from "./compiler/linker.js";
 import { basicVts } from "./compiler/baseVts.js";
 import { getLastPos } from "./compiler/parser/ast.js";
 import { processChange } from "./textUpdater.js";
+import { TokenType } from "./compiler/parser/tokenizer.js";
 
 enum TextDocumentSyncKind {
 	None = 0,
@@ -210,9 +211,14 @@ class LSP {
 		semanticTokens.forEach(({ token, type }) => {
 			const deltaLine = token.line - 1 - lastLine;
 			if (deltaLine > 0) lastChar = 0; // New line, reset char position
-			const deltaChar = token.column - 1 - lastChar;
 
-			result.push(deltaLine, deltaChar, token.value.length, semanticIdx(type), 0);
+			// Offsets to cover the quotes of strings
+			const colOffset = token.type == TokenType.LiteralString ? -1 : 0;
+			const lenOffset = token.type == TokenType.LiteralString ? 2 : 0;
+
+			const deltaChar = token.column + colOffset - 1 - lastChar;
+
+			result.push(deltaLine, deltaChar, token.value.length + lenOffset, semanticIdx(type), 0);
 			lastLine = token.line - 1;
 			lastChar = token.column - 1;
 		});

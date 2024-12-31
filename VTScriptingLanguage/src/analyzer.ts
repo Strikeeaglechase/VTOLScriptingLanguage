@@ -275,6 +275,7 @@ class Analyzer {
 		return this.tokens
 			.map(token => {
 				const tokenSemantics = this.getTokenSemantic(token);
+				// if (token.type == TokenType.LiteralString) token.value += "  "; // Hack to make sure the string includes the last quote
 
 				if (tokenSemantics) {
 					return {
@@ -353,6 +354,11 @@ class Analyzer {
 				if (matchingAst.target == token) return SemanticTokenTypes.function;
 				// if(matchingAst.arguments.includes(token)) return SemanticTokenTypes.parameter;
 				throw new Error("Unknown identifier in FunctionCall");
+
+			case AST.Type.Declare:
+				if (matchingAst.name == token) return SemanticTokenTypes.variable;
+				if (matchingAst.declareType == token) return SemanticTokenTypes.class;
+				throw new Error("Unknown identifier in Declare");
 
 			default:
 				console.log(`Identifier semantics not implemented for ${matchingAst.type}`);
