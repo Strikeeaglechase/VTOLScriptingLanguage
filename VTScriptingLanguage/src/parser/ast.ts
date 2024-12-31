@@ -16,7 +16,7 @@ export namespace AST {
 		MethodCall = "method",
 		FunctionCall = "call",
 		IfStatement = "if",
-		Literal = "number",
+		Literal = "literal",
 		VectorLiteral = "vector",
 		Semi = "semi",
 		ForEach = "forEach",

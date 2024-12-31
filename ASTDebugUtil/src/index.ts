@@ -1,31 +1,13 @@
+import { baseVts } from "./baseVts.js";
 import { Linker } from "./compiler/linker.js";
 import { AST, getLastPos } from "./compiler/parser/ast.js";
 import { Color, ColorValue } from "./renderer/color.js";
 import { Renderer } from "./renderer/renderer.js";
 let renderer: Renderer;
-const code = `define targets: GroundUnitSpawn = (1, 2, 10..17, 5, 18..106);
-let a = 1;
-let b = 1;
-let c = 0;
+const code = `define targets: AIUnitSpawn = (1, 2, 5);
 
-fn destroyAndAdd(a1, b1, c1) {
-	targets[c1].DestroySelf();
-
-	return a1 + b1;
-
-	
-}
-
-targets[0].SetMovementSpeed
-
-while (c < 100) {
-	
-	c = destroyAndAdd(a, b, c);
-	a = b;
-	b = c;
-
-
-}`;
+if (targets.any.SC_IsAlive()) print("Something is alive!");
+if (targets.all.SC_IsAlive()) print("Everything is alive!");`;
 
 let mouseX = 0;
 let mouseY = 0;
@@ -47,9 +29,9 @@ function init() {
 }
 
 const x = 15;
-const y = 35;
+const y = 75;
 const fontBuff = 5;
-const fontSize = 24;
+const fontSize = 18;
 let fontWidth = 0;
 
 const boxXOffset = 0;
@@ -74,6 +56,9 @@ const nodeTypeColors: Partial<Record<AST.Type, ColorValue>> = {};
 let widestType = 0;
 let hoveredType: AST.Type = null;
 
+let totalTime = 0;
+let totalCompiles = 0;
+
 function loop() {
 	requestAnimationFrame(loop);
 	fontWidth = renderer.textWidth(`W`, fontSize);
@@ -86,8 +71,20 @@ function loop() {
 		renderer.text(lines[i], x, y + i * (fontSize + fontBuff), 255, fontSize);
 	}
 
+	renderer.text(`Time: ${(totalTime / totalCompiles).toFixed(1)}ms`, 15, 15, 255, 14);
+
+	const start = Date.now();
 	const linker = new Linker();
-	linker.compile(code, "", true);
+	const { compiledVts } = linker.compile(code, baseVts, {
+		stackSize: 16,
+		skipIR: true,
+		stripInput: false,
+		includeStripInfo: false
+	});
+	// if (totalCompiles == 0) {
+	totalTime += Date.now() - start;
+	totalCompiles++;
+	// }
 
 	const mPos = getMouseTextPos();
 	strokeSection(mPos.line, mPos.column, mPos.line, mPos.column + 1, Color.hsl(0, 0, 0.5));

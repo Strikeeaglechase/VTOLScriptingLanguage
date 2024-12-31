@@ -16,6 +16,7 @@ import { CompletionItem, CompletionList, Diagnostic, SemanticTokens } from "vsco
 import { Linker } from "./compiler/linker.js";
 import { basicVts } from "./compiler/baseVts.js";
 import { getLastPos } from "./compiler/parser/ast.js";
+import { processChange } from "./textUpdater.js";
 
 enum TextDocumentSyncKind {
 	None = 0,
@@ -142,12 +143,24 @@ class LSP {
 	private handleDocumentChange(message: RequestMessage, payload: DidChangeTextDocumentParams) {
 		// console.log(`Received document change for ${payload.textDocument.uri}`);
 		// this.files[payload.textDocument.uri] = payload.contentChanges[0].text;
-		this.setFile(payload.textDocument.uri, payload.contentChanges[0].text);
+		// this.setFile(payload.textDocument.uri, payload.contentChanges[0].text);
+		let text = this.files[payload.textDocument.uri].content;
+		payload.contentChanges.forEach(change => {
+			text = processChange(text, change);
+		});
+
+		this.setFile(payload.textDocument.uri, text);
 	}
 
 	private setFile(uri: string, text: string) {
 		const linker = new Linker();
-		linker.compile(text, basicVts);
+		linker.compile(text, basicVts, {
+			skipIR: true,
+			includeStripInfo: false,
+			stripInput: false,
+			stackSize: 2,
+			generateExceptionObjectives: false
+		});
 		this.files[uri] = { content: text, linker };
 	}
 

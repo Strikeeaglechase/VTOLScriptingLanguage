@@ -7,10 +7,12 @@ interface Vector3 {
 }
 type VTValue = string | number | boolean | Vector3 | VTValue[];
 
+let nid = 0;
 class VTNode<T extends string = string> {
 	public name: string;
 	public values: Record<T, VTValue> = {} as Record<T, VTValue>;
 	public children: VTNode[] = [];
+	public id = nid++;
 
 	constructor(name: string) {
 		this.name = name;

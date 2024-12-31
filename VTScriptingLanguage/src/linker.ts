@@ -17,6 +17,9 @@ interface LinkerOpts {
 	skipIR: boolean;
 	stackSize: number;
 	generateExceptionObjectives: boolean;
+
+	stripInput: boolean;
+	includeStripInfo: boolean;
 }
 
 const defaultLinkerOpts: LinkerOpts = {
@@ -26,7 +29,10 @@ const defaultLinkerOpts: LinkerOpts = {
 	skipIR: false,
 
 	stackSize: 16,
-	generateExceptionObjectives: true
+	generateExceptionObjectives: true,
+
+	stripInput: true,
+	includeStripInfo: true
 };
 
 class Linker {
@@ -57,7 +63,7 @@ class Linker {
 		this.debug("ast.json", () => JSON.stringify(ast, null, 2));
 
 		const orgVts = readVtsFile(vts);
-		deleteCompilerNodes(orgVts);
+		if (opts.stripInput) deleteCompilerNodes(orgVts);
 		this.analyzer = new Analyzer(ast, tokenStream._all(), orgVts);
 		this.analyzer.analyze();
 
@@ -65,7 +71,7 @@ class Linker {
 
 		const compiler = new Compiler(ast, orgVts, opts);
 		const compiledVts = compiler.compile();
-		encodeCompilerOwnedInformation(orgVts, compiledVts);
+		if (opts.includeStripInfo) encodeCompilerOwnedInformation(orgVts, compiledVts);
 		this.compilerErrors = compiler.errors;
 		this.debug("output.vts", () => writeVtsFile(compiledVts));
 
