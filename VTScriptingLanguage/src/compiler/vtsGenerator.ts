@@ -97,7 +97,6 @@ class VTSGenerator {
 		node.setValue("whileLoop", false);
 		node.setValue("startImmediately", false);
 
-		// if (withBaseEvent) {
 		const baseEvent = new VTNode<EventKeys>("EVENT");
 		baseEvent.setValue("delay", 0);
 		baseEvent.setValue("nodeName", "Base Event");
@@ -106,20 +105,62 @@ class VTSGenerator {
 		const eventInfo = new VTNode<"eventName">("EventInfo");
 		eventInfo.setValue("eventName", null);
 		baseEvent.addChild(eventInfo);
-		// }
 
-		// if (addToSeqList) {
 		const parent = this.vts.getNode("EventSequences");
 		parent.addChild(node);
-		// console.log(parent);
-		// console.log(this.vts.getAllChildrenWithName("SEQUENCE").map(s => s.getValue("sequenceName")));
-		// }
 
 		return node;
 	}
 
 	@Track
-	public fireConditional(condId: number) {
+	public caSequence(name: string, forceId?: number) {
+		const conditionalAction = new VTNode<ConditionalActionKeys>("ConditionalAction");
+		conditionalAction.setValue("id", forceId ?? this.nextId());
+		conditionalAction.setValue("name", null);
+
+		const baseBlock = new VTNode<BaseBlockKeys>("BASE_BLOCK");
+		baseBlock.setValue("blockName", name);
+		baseBlock.setValue("{blockName}", name);
+		baseBlock.setValue("blockId", this.nextId());
+		conditionalAction.addChild(baseBlock);
+
+		const conditional = this.truthyCond();
+		baseBlock.addChild(conditional);
+
+		const actionsBlock = new VTNode<"eventName">("ACTIONS");
+		actionsBlock.setValue("eventName", null);
+		baseBlock.addChild(actionsBlock);
+
+		const elseActionsBlock = new VTNode<"eventName">("ELSE_ACTIONS");
+		elseActionsBlock.setValue("eventName", null);
+		baseBlock.addChild(elseActionsBlock);
+
+		const parent = this.vts.getNode("ConditionalActions");
+		parent.addChild(conditionalAction);
+
+		return conditionalAction;
+	}
+
+	@Track
+	public truthyCond() {
+		const condId = this.nextId();
+		const cond = new VTNode<CompKeys>("COMP");
+		cond.setValue("id", condId);
+		cond.setValue("type", "SCCChance");
+		cond.setValue("uiPos", { x: 0, y: 0, z: 0 });
+		cond.setValue("chance", 100);
+
+		const conditional = new VTNode<ConditionalKeys>("CONDITIONAL");
+		conditional.setValue("id", this.nextId());
+		conditional.setValue("outputNodePos", { x: 0, y: 0, z: 0 });
+		conditional.setValue("root", condId);
+		conditional.addChild(cond);
+
+		return conditional;
+	}
+
+	@Track
+	public fireConditionalAction(condId: number) {
 		const eventTarget = new VTNode<EventTargetKeys>("EventTarget");
 		eventTarget.setValue("targetType", "System");
 		eventTarget.setValue("targetID", 0);
@@ -388,7 +429,7 @@ class VTSGenerator {
 
 		const actionBlock = new VTNode<"eventName">("ACTIONS");
 		actionBlock.setValue("eventName", null);
-		actionBlock.addChild(ifTrueAction);
+		if (ifTrueAction) actionBlock.addChild(ifTrueAction);
 		bb.addChild(actionBlock);
 
 		if (ifFalseAction) {
@@ -398,7 +439,7 @@ class VTSGenerator {
 			bb.addChild(elseBlock);
 		}
 
-		return this.fireConditional(conditionalAction.getValue("id"));
+		return this.fireConditionalAction(conditionalAction.getValue("id"));
 	}
 
 	@Track

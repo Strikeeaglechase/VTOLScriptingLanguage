@@ -80,8 +80,8 @@ class Emulator {
 			}
 
 			const eventTargets = event.getAllChildrenWithName("EventTarget");
-			if (useAsync) await this.fireEvents(eventTargets, depth + 1);
-			else this.fireEventsSync(eventTargets, depth + 1);
+			this.fireEvents(eventTargets, depth + 1);
+			if (useAsync) await delay(0); // Simulate waitForNextFrame
 		}
 	}
 
@@ -124,14 +124,7 @@ class Emulator {
 		this.checkExceptionFlags();
 	}
 
-	private async fireEvents(events: VTNode<EventTargetKeys>[], depth: number) {
-		for (const event of events) {
-			this.fireEvent(event, depth);
-			await delay(0); // Simulate waitForNextFrame
-		}
-	}
-
-	private fireEventsSync(events: VTNode<EventTargetKeys>[], depth: number) {
+	private fireEvents(events: VTNode<EventTargetKeys>[], depth: number) {
 		for (const event of events) {
 			this.fireEvent(event, depth);
 		}
@@ -293,21 +286,22 @@ class Emulator {
 			case "SCCUnit":
 				console.log(`SCCUnit ${comp.getValue("unit")}.${comp.getValue("methodName")}()`);
 				return SCCUNIT_COND_RESULT;
+			case "SCCChance":
+				const chance = comp.getValue<"chance", number>("chance") / 100;
+				return Math.random() < chance;
 			default:
 				throw new Error(`Unhandled conditional type: ${comp.getValue("type")}`);
 		}
 	}
 
-	private async handleConditionalAction(ca: VTNode<ConditionalActionKeys>, depth: number) {
-		if (useAsync) await delay(0); // Simulate waitForNextFrame
+	private handleConditionalAction(ca: VTNode<ConditionalActionKeys>, depth: number) {
 		const bb = ca.getNode("BASE_BLOCK");
 		const baseCondition = bb.getNode("CONDITIONAL");
 		const baseIsTrue = this.evaluateCondition(baseCondition);
 		if (baseIsTrue) {
 			const baseAction = bb.getNode("ACTIONS");
 			const events = baseAction.getAllChildrenWithName("EventTarget");
-			if (useAsync) await this.fireEvents(events, depth);
-			else this.fireEventsSync(events, depth);
+			this.fireEvents(events, depth);
 		} else {
 			const elseIfBlocks = bb.getAllChildrenWithName("ELSE_IF");
 			for (const elseIfBlock of elseIfBlocks) {
@@ -316,8 +310,7 @@ class Emulator {
 				if (isTrue) {
 					const actions = elseIfBlock.getNode("ACTIONS");
 					const events = actions.getAllChildrenWithName("EventTarget");
-					if (useAsync) await this.fireEvents(events, depth);
-					else this.fireEventsSync(events, depth);
+					this.fireEvents(events, depth);
 					return;
 				}
 			}
@@ -326,8 +319,7 @@ class Emulator {
 			if (elseBlock) {
 				// const actions = elseBlock.getNode("ACTIONS");
 				const events = elseBlock.getAllChildrenWithName("EventTarget");
-				if (useAsync) await this.fireEvents(events, depth);
-				else this.fireEventsSync(events, depth);
+				this.fireEvents(events, depth);
 			}
 		}
 	}
@@ -357,8 +349,8 @@ class Emulator {
 	private waitForHalt() {
 		return new Promise<void>(res => {
 			const check = () => {
-				const jumpFlag = this.getGvByName(vars.jumpFlag);
-				if (jumpFlag.value == -1) {
+				const exitFlag = this.getGvByName(vars.exitFlag);
+				if (exitFlag.value == -1) {
 					this.log(`Jump flag set to -1, halting`);
 					res();
 				} else {
@@ -370,8 +362,8 @@ class Emulator {
 	}
 
 	private waitForHaltSync() {
-		const jumpFlag = this.getGvByName(vars.jumpFlag);
-		if (jumpFlag.value != -1) {
+		const exitFlag = this.getGvByName(vars.exitFlag);
+		if (exitFlag.value != -1) {
 			throw new Error("Sync jump flag was not set to -1");
 		}
 

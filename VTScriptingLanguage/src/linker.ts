@@ -22,7 +22,7 @@ interface LinkerOpts {
 const defaultLinkerOpts: LinkerOpts = {
 	onlyAnalyze: false,
 	continueParseOnError: true,
-	optimizationPassCount: 1,
+	optimizationPassCount: 2,
 	skipIR: false,
 
 	stackSize: 16,

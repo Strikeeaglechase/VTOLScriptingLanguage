@@ -3,7 +3,7 @@ export type EventKeys = "delay" | "nodeName" | "conditional";
 export type EventTargetKeys = "targetType" | "targetID" | "eventName" | "methodName";
 export type ParamInfoKeys = "type" | "value" | "name";
 export type ConditionalActionKeys = "id" | "name";
-export type BaseBlockKeys = "{blockName}" | "blockId";
+export type BaseBlockKeys = "{blockName}" | "blockId" | "blockName";
 export type ConditionalKeys = "id" | "outputNodePos" | "root";
 export type CompKeys =
 	| "id"
@@ -18,7 +18,8 @@ export type CompKeys =
 	| "methodParameters"
 	| "isNot"
 	| "gvA"
-	| "gvB";
+	| "gvB"
+	| "chance";
 export type GVKeys = "data";
 export type ParamAttrInfoKeys = "type" | "data";
 export type ObjectiveKeys =

@@ -1,12 +1,5 @@
-//expect result=30
+//debug:test2
+
 let a = 1;
 let b = 2;
-
-fn testFunction() {
-	let a = 10;
-	let b = 20;
-
-	return a + b;
-}
-
-let result = testFunction();
+let test2 = a + b;

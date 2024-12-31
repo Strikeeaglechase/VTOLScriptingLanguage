@@ -182,9 +182,36 @@ class Analyzer {
 		return methods;
 	}
 
+	public identifyPartialDefine(line: number, column: number) {
+		const selectedToken = this.tokens.find(token => {
+			if (token.line != line) return false;
+			const len = token.value.length;
+			return token.column <= column && token.column + len >= column;
+		});
+		if (!selectedToken) return null;
+		let isPartOfColon = selectedToken.type == TokenType.Symbol && selectedToken.value == ":";
+		let indexOffset = -1;
+		if (!isPartOfColon) {
+			const previousToken = this.tokens[this.tokens.indexOf(selectedToken) - 1];
+			isPartOfColon = previousToken.type == TokenType.Symbol && previousToken.value == ":";
+			indexOffset = -2;
+		}
+
+		if (!isPartOfColon) return null;
+
+		const defineKeyword = this.tokens[this.tokens.indexOf(selectedToken) + indexOffset - 1];
+		if (!defineKeyword || defineKeyword.type != TokenType.Keyword || defineKeyword.value != "define") return null;
+
+		const classTypes = loadGameTypes().classes.map(c => c.name);
+		return classTypes;
+	}
+
 	public getSymbolsAtLine(line: number, column: number): SymbolInformation[] {
 		const partialEnum = this.identifyPartialEnumRead(line, column);
 		if (partialEnum) return partialEnum.values.map(v => ({ name: v.key, type: "variable" }));
+
+		const partialDefine = this.identifyPartialDefine(line, column);
+		if (partialDefine) return partialDefine.map(d => ({ name: d, type: "variable" }));
 
 		const contextRange = this.contextRanges.filter(ctx => {
 			if (line > ctx.startLine && line < ctx.endLine) return true; // Inside context
