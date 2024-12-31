@@ -124,7 +124,7 @@ class VTSGenerator {
 		baseBlock.setValue("blockId", this.nextId());
 		conditionalAction.addChild(baseBlock);
 
-		const conditional = this.truthyCond();
+		const conditional = this.chanceCond(100);
 		baseBlock.addChild(conditional);
 
 		const actionsBlock = new VTNode<"eventName">("ACTIONS");
@@ -142,13 +142,13 @@ class VTSGenerator {
 	}
 
 	@Track
-	public truthyCond() {
+	public chanceCond(chance: number) {
 		const condId = this.nextId();
 		const cond = new VTNode<CompKeys>("COMP");
 		cond.setValue("id", condId);
 		cond.setValue("type", "SCCChance");
 		cond.setValue("uiPos", { x: 0, y: 0, z: 0 });
-		cond.setValue("chance", 100);
+		cond.setValue("chance", chance);
 
 		const conditional = new VTNode<ConditionalKeys>("CONDITIONAL");
 		conditional.setValue("id", this.nextId());

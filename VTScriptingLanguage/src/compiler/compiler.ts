@@ -723,6 +723,8 @@ class Compiler {
 	private handleFunctionCall(ast: AST.FunctionCall) {
 		// Probably better as a proper "builtinFunction" system, but don't want to deal with having to publicize a bunch of stuff
 		if (ast.target.value == "print") return this.handlePrintFunctionCall(ast);
+		if (ast.target.value == "rand") return this.handleRandFunctionCall(ast);
+
 		const fn = this.functions.find(f => f.name == ast.target.value);
 		if (!fn) throw new Error(`Function "${ast.target.value}" not found`);
 
@@ -737,6 +739,18 @@ class Compiler {
 		});
 
 		this.add(this.gen.fireConditionalAction(fn.id));
+	}
+
+	private handleRandFunctionCall(ast: AST.FunctionCall) {
+		const chance = ast.arguments[0];
+		if (chance.type != AST.Type.Literal) throw new Error("rand() only supports number literals");
+		if (typeof chance.value != "number") throw new Error("rand() only supports number literals, got " + typeof chance.value);
+
+		const ifTrueAction = this.gen.gvSet(this.vn(vars.result), 1);
+		const ifFalseAction = this.gen.gvSet(this.vn(vars.result), 0);
+		const random = this.gen.chanceCond(chance.value);
+		this.add(this.gen.simpleConditional("rand", random, ifTrueAction, ifFalseAction));
+		this.push();
 	}
 
 	private handlePrintFunctionCall(ast: AST.FunctionCall) {

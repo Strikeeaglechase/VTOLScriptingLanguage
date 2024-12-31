@@ -1,5 +1,3 @@
 //debug:test2
 
-let a = 1;
-let b = 2;
-let test2 = a + b;
+if(rand(50)) print("Hello World!");
