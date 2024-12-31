@@ -11,15 +11,15 @@ import { vars } from "./compiler/compiler.js";
 const options: (OptionDefinition & { description: string })[] = [
 	{ name: "input", alias: "i", type: String, description: `Input VTSL file` },
 	{ name: "output", alias: "o", type: String, description: `Output VTS file` },
-	{ name: "vts", alias: "v", type: String, description: `Source VTS to compile into` },
+	{ name: "vts", type: String, description: `Source VTS to compile into` },
 	{ name: "strip", type: String, description: "Deletes all VTSL code from the VTS file, leaving the original VTS" },
 	{ name: "debug", alias: "d", type: Boolean, defaultValue: false, description: `Enable debug files` },
-	{ name: "no-optimize", type: Boolean, defaultValue: false, description: `Disable optimization` },
+	{ name: "opt", type: Number, defaultValue: 2, description: `Sets optimization level (default=2)` },
 	{
 		name: "no-ir",
 		type: Boolean,
 		defaultValue: false,
-		description: `Skip IR compilation (effectively same as --no-optimize, but entirely disables IR logic)`
+		description: `Skip IR compilation (effectively same as --opt 0, but entirely disables IR logic)`
 	},
 	{ name: "stack-size", type: Number, defaultValue: 16, description: `Set the stack size for the compiler` },
 	{ name: "no-except", type: Boolean, defaultValue: false, description: `Disable stack overflow and OOB objective's from being included in the VTS file` },
@@ -76,7 +76,7 @@ if (!fs.existsSync(inputPath)) errExit(`Input file does not exist: ${inputPath}`
 if (!fs.existsSync(vtsPath)) errExit(`VTS file does not exist: ${vtsPath}`);
 
 const debug: boolean = args.debug;
-const optimize: boolean = !args["no-optimize"];
+const optimize: number = args["opt"];
 const skipIR: boolean = args["no-ir"];
 const stackSize: number = args["stack-size"];
 const noExcept: boolean = args["no-except"];
@@ -101,7 +101,7 @@ const source = fs.readFileSync(inputPath, "utf-8");
 const sourceVts = fs.readFileSync(vtsPath, "utf-8");
 const { compiledVts, irCompiledVts } = linker.compile(source, sourceVts, {
 	continueParseOnError: false,
-	optimizationPassCount: optimize ? 1 : 0,
+	optimizationPassCount: optimize,
 	skipIR: skipIR,
 	onlyAnalyze: false,
 	stackSize: stackSize,
