@@ -110,14 +110,15 @@ Referencing VTOL units is via a "Unit List", which effectively acts like an arra
 define targets: AIUnitSpawn = (1, 2, 10..17, 5, 18..106);
 ```
 
-The above defines a unit list `targets`, units must be typed so that methods can be called on them, in this case `AIUnitSpawn`. After the = you can have a single value, or a comma separated list of values (parentheses only required if you have multiple values). The spread operator defines a range of IDs, so `1..5` would have all the IDs from 1 to 5 inclusive. These IDs should map to the UnitInstanceID in VTOL.
+The above defines a unit list `targets`, units must be typed so that methods can be called on them, in this case `AIUnitSpawn`. After the = you can have a single value, or a comma separated list of values (parentheses only required if you have multiple values). The spread operator defines a range of IDs, so `1..5` would have all the IDs from 1 to 5 inclusive. These IDs should map to the `UnitInstanceID` in VTOL.
 
 Units can be indexed as expected, however if an index is not provided the method will be called on every unit, so `targets.DestroySelf();` would destroy all units in that list.
 
-For conditional methods (methods that return a bool) if an index is not provided the return ias the logical and of calling the method on every unit.
+For conditional methods (methods that return a bool) if an index is not provided the return is the logical and of calling the method on every unit.
 
 Many methods require an enum value as an argument, in such cases (for instance `SetMovementSpeed`), simply use the enum like `MoveSpeeds.Slow_10`.
 
+[!IMPORTANT]
 It is important to note that **method arguments must be constant**, this is a limitation of VTOL.
 
 ## Looping

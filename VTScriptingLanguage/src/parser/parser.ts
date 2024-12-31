@@ -603,7 +603,7 @@ class Parser {
 		const fn = this.tokens.next();
 		let name = this.tokens.next();
 		let noWait: Token;
-		if (name.value == "noWait") {
+		if (name.type == TokenType.Keyword && name.value == "nowait") {
 			noWait = name;
 			name = this.tokens.next();
 		}

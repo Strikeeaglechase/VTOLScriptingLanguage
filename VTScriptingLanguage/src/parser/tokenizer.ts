@@ -5,7 +5,7 @@ const identifierStartChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWX
 
 const trueName = "true";
 const falseName = "false";
-const keywords = ["define", "forEach", "for", "while", "if", "fn", "let", "ref", "as", "return", "declare"];
+const keywords = ["define", "forEach", "for", "while", "if", "fn", "let", "ref", "as", "return", "declare", "nowait"];
 const operands = ["+", "-", "*", "/", "%", "|", "&", "||", "&&", "!", "==", "!=", "<", ">", "<=", ">=", "..", "+=", "-="];
 const symbols = ["(", ")", "[", "]", "{", "}", ";", ",", ".", "=", ":"];
 
