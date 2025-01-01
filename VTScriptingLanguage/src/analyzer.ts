@@ -311,7 +311,7 @@ class Analyzer {
 		const matchingAst = this.getTokenAst(token);
 		switch (matchingAst.type) {
 			case AST.Type.UnitDefine:
-				if (matchingAst.name == token) return `(unit) ${matchingAst.name.value}: ${matchingAst.unitType.value}`;
+				if (matchingAst.name == token) return `${matchingAst.name.value}: ${matchingAst.unitType.value}`;
 				if (matchingAst.unitType == token) return `(type) ${matchingAst.unitType.value}`;
 				throw new Error("Unknown identifier in UnitDefine");
 			case AST.Type.VariableDeclaration:

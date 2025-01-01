@@ -1,7 +1,7 @@
 import fs from "fs";
 
-// Setup non-unit events
-// "Loop" function
+// Setup non-unit (cond) events
+
 import { Emulator } from "./emulator/emulator.js";
 import { UnitTester } from "./unitTests.js";
 import { writeVtsFile } from "./vtsParser.js";

@@ -252,6 +252,32 @@ class IRGenerator {
 		}
 	}
 
+	private static stringifyConditionalAction(ca: IRConditionalAction, ir: IR) {
+		let result = "";
+		result += `[CACT] ${ca.name} (${ca.id})\n`;
+		result += `\tIF ${this.stringifyConditional(ca.if, ir)}\n`;
+		ca.then.forEach(e => {
+			result += `\t\t${this.stringifyEvent(e, ir)}\n`;
+		});
+
+		ca.elseIfs.forEach(elseIf => {
+			result += `\tELSE_IF ${this.stringifyConditional(elseIf.conditional, ir)}\n`;
+			elseIf.then.forEach(e => {
+				result += `\t\t${this.stringifyEvent(e, ir)}\n`;
+			});
+		});
+
+		if (ca.else.length > 0) {
+			result += `\tELSE\n`;
+			ca.else.forEach(e => {
+				result += `\t\t${this.stringifyEvent(e, ir)}\n`;
+			});
+		}
+		result += "\n";
+
+		return result;
+	}
+
 	public static debug(ir: IR) {
 		let result = ``;
 		ir.sequences.forEach(s => {
@@ -267,27 +293,14 @@ class IRGenerator {
 			result += "\n";
 		});
 
+		// Conditional Actions (with push/pop at the end)
 		ir.conditionalActions.forEach(ca => {
-			result += `[CACT] ${ca.name} (${ca.id})\n`;
-			result += `\tIF ${this.stringifyConditional(ca.if, ir)}\n`;
-			ca.then.forEach(e => {
-				result += `\t\t${this.stringifyEvent(e, ir)}\n`;
-			});
-
-			ca.elseIfs.forEach(elseIf => {
-				result += `\tELSE_IF ${this.stringifyConditional(elseIf.conditional, ir)}\n`;
-				elseIf.then.forEach(e => {
-					result += `\t\t${this.stringifyEvent(e, ir)}\n`;
-				});
-			});
-
-			if (ca.else.length > 0) {
-				result += `\tELSE\n`;
-				ca.else.forEach(e => {
-					result += `\t\t${this.stringifyEvent(e, ir)}\n`;
-				});
-			}
-			result += "\n";
+			if (ca.name == "push" || ca.name == "pop") return;
+			result += this.stringifyConditionalAction(ca, ir);
+		});
+		ir.conditionalActions.forEach(ca => {
+			if (ca.name != "push" && ca.name != "pop") return;
+			result += this.stringifyConditionalAction(ca, ir);
 		});
 
 		ir.gvs.forEach(gv => {

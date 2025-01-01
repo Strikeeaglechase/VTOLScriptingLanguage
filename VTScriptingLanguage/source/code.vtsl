@@ -1,23 +1,7 @@
-define targets: AIUnitSpawn = (1..2);
+define test: VTSequencedEvent = 42;
+define gvs: ScenarioGlobalValueActions = 2;
 
-
-//EXPECT r1=32
-//EXPECT r2=-10
-//EXPECT r3=34
-fn add(a, b) = 1 {
-	return a + b;
-}
-
-fn sub(a, b) = 2 {
-	return a - b;
-}
-
-let x = add;
-let r1 = x(11, 21);
-x = sub;
-let r2 = x(11, 21);
-
-x -= 1;
-let r3 = x(12, 22);
-
-targets.ForceAltSpawn(0);
+test.BeginEvent();
+let a = 1;
+let b = 2;
+gvs.CopyValue(a, b);

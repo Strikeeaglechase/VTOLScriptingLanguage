@@ -1,5 +1,6 @@
 import { AST } from "../parser/ast.js";
 import { VTNode, VTValue } from "../vtsParser.js";
+import { Context } from "./context.js";
 import { loadGameTypes } from "./gameTypes.js";
 import { VTSGenerator } from "./vtsGenerator.js";
 
@@ -10,6 +11,7 @@ export function convertAstToMethodParameters(ast: AST.AnyAST): VTValue {
 		case AST.Type.VectorLiteral:
 			value = ast.value;
 			break;
+
 		default:
 			throw new Error(`Unhandled AST type "${ast.type}" for convertAstToMethodParameters`);
 	}
@@ -40,7 +42,7 @@ const enumTypes: { methodType: string; gameType?: string }[] = [
 ];
 // Official argument types: CardinalDirections, FollowPath, InOrOut, bool, UnitReferenceListOtherSubs, Teams, UnitReferenceList, PlayerCommandsModes, FormationDistances, Waypoint, float, FlightStartModes, TargetingMethods, SCCPlayerSensors, FixedPoint
 // Unimplemented: FollowPath, UnitReferenceListOtherSubs, UnitReferenceList, Waypoint
-export function convertAstToParamInfo(ast: AST.AnyAST, paramInfo: { type: string; name: string }) {
+export function convertAstToParamInfo(context: Context, ast: AST.AnyAST, paramInfo: { type: string; name: string }) {
 	let value: VTValue;
 	let type: string;
 	switch (paramInfo.type) {
@@ -72,6 +74,13 @@ export function convertAstToParamInfo(ast: AST.AnyAST, paramInfo: { type: string
 			if (ast.type != AST.Type.VectorLiteral) throw new Error(`Expected vector literal, got ${ast.type}`);
 			value = ast.value;
 			type = "FixedPoint";
+			break;
+
+		case "GlobalValue":
+			if (ast.type != AST.Type.VariableReference) throw new Error(`Expected global variable reference, got ${ast.type}`);
+			const gv = context.getGV(ast.name.value);
+			value = gv.id;
+			type = "GlobalValue";
 			break;
 
 		default:

@@ -12,6 +12,7 @@ import {
 	SequenceKeys
 } from "../vtTypes.js";
 import { varIds } from "./compiler.js";
+import { classTypeMap } from "./gameTypes.js";
 
 interface NodeInfo {
 	methodName: string;
@@ -548,9 +549,10 @@ class VTSGenerator {
 	}
 
 	@Track
-	public unitMethod(method: string, unitId: number, params: { name: string; type: string; value: VTValue }[]) {
+	public unitMethod(klass: string, method: string, unitId: number, params: { name: string; type: string; value: VTValue }[]) {
+		if (!(klass in classTypeMap)) throw new Error(`Class "${klass}" is not defined`);
 		const eventTarget = new VTNode<EventTargetKeys | "altTargetIdx">("EventTarget");
-		eventTarget.setValue("targetType", "Unit");
+		eventTarget.setValue("targetType", classTypeMap[klass]);
 		eventTarget.setValue("targetID", unitId);
 		eventTarget.setValue("eventName", method);
 		eventTarget.setValue("methodName", method);

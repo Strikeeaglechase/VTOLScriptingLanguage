@@ -85,6 +85,9 @@ fn myFunction(a, b) {
 let result = myFunction(1, 2)
 ```
 
+> [!IMPORTANT]
+> The `return` keyword does not act as control flow, rather it is only for setting the result of a function, there is no way to "early exit" from a function
+
 If you would like to reference a function externally (ie to setup a trigger/custom VTOL logic that VTSL doesn't support) you may define a static ID for a function, and a EventSequence will be created for it
 
 ```rust

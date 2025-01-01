@@ -2,7 +2,7 @@ import { AST } from "../parser/ast.js";
 import { stringifyVTValue, VTNode, VTValue } from "../vtsParser.js";
 import { BaseBlockKeys, CompKeys, ConditionalActionKeys, GVKeys, SequenceKeys } from "../vtTypes.js";
 import { Context, GV, Iterator } from "./context.js";
-import { loadGameTypes, Method } from "./gameTypes.js";
+import { classTypeMap, loadGameTypes, Method } from "./gameTypes.js";
 import { convertAstToMethodParameters, convertAstToParamInfo } from "./vtArgConverter.js";
 import { VTSGenerator } from "./vtsGenerator.js";
 
@@ -637,7 +637,7 @@ class Compiler {
 		const actionParent = new VTNode<"eventName">("ACTIONS");
 		actionParent.setValue("eventName", null);
 		unitList.ids.forEach(id => {
-			const unitMethod = this.gen.unitMethod(method, id, params);
+			const unitMethod = this.gen.unitMethod(unitList.type, method, id, params);
 			actionParent.addChild(unitMethod);
 		});
 
@@ -653,7 +653,7 @@ class Compiler {
 
 			const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
 			elseIfActionParent.setValue("eventName", null);
-			const unitMethod = this.gen.unitMethod(method, id, params);
+			const unitMethod = this.gen.unitMethod(unitList.type, method, id, params);
 			elseIfActionParent.addChild(unitMethod);
 
 			elseIf.addChild(elseIfConditional);
@@ -743,7 +743,7 @@ class Compiler {
 			throw new Error(`Method "${ast.method.value}" expected ${method.args.length} arguments, got ${ast.arguments.length}`);
 
 		if (method.returnType == "void") {
-			const params = ast.arguments.map((arg, idx) => convertAstToParamInfo(arg, method.args[idx]));
+			const params = ast.arguments.map((arg, idx) => convertAstToParamInfo(this.context, arg, method.args[idx]));
 			const paramKey = params.map(p => stringifyVTValue(p.value)).join(",");
 			const ulMethod = unitList.createdActions.find(a => a.actionMethod == ast.method.value && a.argKey == paramKey);
 			if (ulMethod) return ulMethod;
@@ -775,9 +775,27 @@ class Compiler {
 		const methodInfo = classInfo.methods.find(m => m.name == ast.method.value);
 		if (!methodInfo) throw new Error(`Method "${ast.method.value}" not found on type "${unitList.type}"`);
 
-		// if (unitList.ids.length > 1) {
-		// 	this.add(this.gen.unitMethod(ast.method.value, unitList.ids[0]));
-		// }
+		if (unitList.ids.length == 1) {
+			if (methodInfo.returnType == "void") {
+				const params = ast.arguments.map((arg, idx) => convertAstToParamInfo(this.context, arg, methodInfo.args[idx]));
+				this.add(this.gen.unitMethod(unitList.type, ast.method.value, unitList.ids[0], params));
+			} else {
+				const params = ast.arguments.map(arg => convertAstToMethodParameters(arg));
+				const ifTrueAction = this.gen.gvSet(this.vn(vars.result), 1);
+				const ifFalseAction = this.gen.gvSet(this.vn(vars.result), 0);
+				this.add(
+					this.gen.simpleConditional(
+						`single_${ast.method.value}`,
+						this.gen.unitComp(ast.method.value, unitList.ids[0], false, params),
+						ifTrueAction,
+						ifFalseAction
+					)
+				);
+			}
+
+			return;
+		}
+
 		const ulMethod = this.getOrCreateMethodCall(methodInfo, ast, unitList);
 
 		if (ast.modifier) {
@@ -915,6 +933,20 @@ class Compiler {
 				def.ids.push(idRange.value);
 			}
 		});
+
+		if (!(def.type in classTypeMap)) throw new Error(`Class type "${def.type}" not found`);
+		if (classTypeMap[def.type] == "System") {
+			if (def.ids.length != 1) throw new Error(`System class "${def.type}" can only have one id`);
+			const id = def.ids[0];
+			const expectSystemClassIdMap = [
+				"ScenarioSystemActions", // 0
+				"ScenarioTutorialActions", // 1
+				"ScenarioGlobalValueActions", // 2
+				"ScenarioGlobalUnitActions" // 3
+			];
+			const expectedId = expectSystemClassIdMap.indexOf(def.type);
+			if (id != expectedId) throw new Error(`System class "${def.type}" must have id ${expectedId}, got ${id}`);
+		}
 
 		this.defines.push(def);
 	}

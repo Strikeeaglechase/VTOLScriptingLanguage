@@ -20,6 +20,15 @@ function processMethod(match: RegExpMatchArray): Method {
 	return { name, decorator, returnType, args };
 }
 
+function countInstances(str: string, char: string) {
+	let count = 0;
+	for (let i = 0; i < str.length; i++) {
+		if (str[i] === char) count++;
+	}
+
+	return count;
+}
+
 function extractClasses() {
 	const classInfos: ClassInfo[] = [];
 
@@ -57,9 +66,36 @@ function extractClasses() {
 		return info;
 	}
 
-	const rawClasses = [...source.matchAll(/(?:public|private) class ([\w\d]+)(?: :((?: [\w\d]+,?)+))?\n{([\w\d\s\W\D\S]+?)\n}/g)];
+	function extractRawClasses() {
+		const lines = source.split("\n");
+		// const resolvedClasses: { depth: number; content: string; resolvedLines: string[] }[] = [];
+		const classHeaders = [...source.matchAll(/public class [\w\d]+/g)].map(c => c[0]);
+		const classes: string[] = [];
+		classHeaders.forEach(c => {
+			const startLine = lines.findIndex(l => l.includes(c));
+			let curDepth = 0;
+			let currentLine = startLine + 1;
+			const resolvedLines: string[] = [];
+			do {
+				const line = lines[currentLine];
+				curDepth += countInstances(line, "{");
+				curDepth -= countInstances(line, "}");
+				if (curDepth == 1) resolvedLines.push(line);
+				currentLine++;
+			} while (curDepth > 0);
+
+			classes.push(lines[startLine] + "\n" + resolvedLines.join("\n"));
+		});
+
+		return classes;
+	}
+
+	const rawClasses = extractRawClasses();
+
+	// const rawClasses = [...source.matchAll(/(?:public|private) class ([\w\d]+)(?: :((?: [\w\d]+,?)+))?\n{([\w\d\s\W\D\S]+?)\n}/g)];
 	const classes = rawClasses.map(c => {
-		const [_, name, inheres, body] = c;
+		const [_, name, inheres] = c.match(/(?:public|private) class ([\w\d]+)(?: :((?: [\w\d]+,?)+))?/);
+		const body = c.split("\n").slice(1).join("\n");
 		return { name, inheres, body };
 	});
 	const condClasses = classes.filter(c => c.body.includes("[SCCUnitProperty") || c.body.includes("[VTEvent"));
@@ -110,7 +146,7 @@ officialArgTypes.forEach(t => {
 	}
 });
 
-// console.log(relevantEnumInfos.map(e => e.name));
+console.log(classInfos.map(e => e.name));
 
 // Argument types: int, Actor,  UnitSpawner, ConfigNode, GameObject Vector3D, PhoneticLetters, string
 // Official argument types: CardinalDirections, FollowPath, InOrOut, bool, UnitReferenceListOtherSubs, Teams, UnitReferenceList, PlayerCommandsModes, FormationDistances, Waypoint, float, FlightStartModes, TargetingMethods, SCCPlayerSensors, FixedPoint

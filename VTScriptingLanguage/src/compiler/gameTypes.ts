@@ -17,9 +17,77 @@ export interface EnumInfo {
 	values: { key: string; value: string }[];
 }
 
-// let types: { classes: ClassInfo[]; enums: EnumInfo[] };
+/*
+Unit,
+UnitGroup,
+Objective,
+Timed_Events,
+Trigger_Events,
+Event_Sequences,
+System,
+Static_Object,
+Base
+*/
+
+export const classTypeMap = {
+	UnitSpawn: "Unit",
+	AIUnitSpawn: "Unit",
+	AIUnitSpawnEquippable: "Unit",
+	AIAircraftSpawn: "Unit",
+	AISeaUnitSpawn: "Unit",
+	AICarrierSpawn: "Unit",
+	AIDroneCarrierSpawn: "Unit",
+	GroundUnitSpawn: "Unit",
+	AIFixedSAMSpawn: "Unit",
+	AIGroundECMSpawn: "Unit",
+	AIJTACSpawn: "Unit",
+	AIMissileSilo: "Unit",
+	AITestUnitSpawn: "Unit",
+	APCUnitSpawn: "Unit",
+	ArtilleryUnitSpawn: "Unit",
+	IFVSpawn: "Unit",
+	J4MothershipSpawn: "Unit",
+	MultiplayerSpawn: "Unit",
+	PlayerSpawn: "Unit",
+	RearmingUnitSpawn: "Unit",
+	RocketArtilleryUnitSpawn: "Unit",
+	SCCUnitList: "UnitGroup",
+	TriggerEvent: "Trigger_Events",
+	ScenarioTriggerEvents: "Trigger_Events",
+	VTMapEdPrefab: "Static_Object",
+	VTMapEdStructurePrefab: "Static_Object",
+	VTMapEdScenarioBasePrefab: "Base",
+	VTObjective: "Objective",
+	ScenarioSystemActions: "System",
+	ScenarioTutorialActions: "System",
+	ScenarioGlobalValueActions: "System",
+	ScenarioGlobalUnitActions: "System",
+	// VTScenario: "System",
+	VTSequencedEvent: "Event_Sequences",
+	VTStaticObject: "Static_Object",
+	VTSODestructible: "Static_Object",
+	VTSOTutorial: "Static_Object",
+	VTTimedEventGroup: "Timed_Events",
+	VTUnitGroup: "UnitGroup",
+	UnitGroupActions: "UnitGroup",
+	UnitGroupActionsTargetPrefs: "UnitGroup",
+	SeaGroupActions: "UnitGroup",
+	AirGroupActions: "UnitGroup",
+	GroundGroupActions: "UnitGroup"
+};
+
+/*
+[
+  'UnitGroupActions',
+  'UnitGroupActionsTargetPrefs',
+  'SeaGroupActions',
+  'AirGroupActions',
+  'GroundGroupActions'
+]
+*/
 
 export function loadGameTypes() {
+	// console.log(types.classes.map(c => c.name));
 	// if (!types) {
 	// 	const gTypes = fs.readFileSync("../../classInfo.json", "utf-8");
 	// 	types = JSON.parse(gTypes) as { classes: ClassInfo[]; enums: EnumInfo[] };
@@ -769,17 +837,6 @@ const types = {
 		{
 			name: "AIAircraftSpawn",
 			methods: [
-				{
-					name: "PassesFilter",
-					decorator: null,
-					returnType: "bool",
-					args: [
-						{
-							name: "uSpawner",
-							type: "UnitSpawner"
-						}
-					]
-				},
 				{
 					name: "IsWingmanVoice",
 					decorator: null,
@@ -2876,17 +2933,6 @@ const types = {
 			name: "GroundUnitSpawn",
 			methods: [
 				{
-					name: "PassesFilter",
-					decorator: null,
-					returnType: "bool",
-					args: [
-						{
-							name: "uSpawner",
-							type: "UnitSpawner"
-						}
-					]
-				},
-				{
 					name: "UnitCanMove",
 					decorator: null,
 					returnType: "bool",
@@ -3327,17 +3373,6 @@ const types = {
 		{
 			name: "AIFixedSAMSpawn",
 			methods: [
-				{
-					name: "PassesFilter",
-					decorator: null,
-					returnType: "bool",
-					args: [
-						{
-							name: "spawner",
-							type: "UnitSpawner"
-						}
-					]
-				},
 				{
 					name: "ReloadNow",
 					decorator: "VTEvent",
@@ -3865,17 +3900,6 @@ const types = {
 					]
 				},
 				{
-					name: "PassesFilter",
-					decorator: null,
-					returnType: "bool",
-					args: [
-						{
-							name: "uSpawner",
-							type: "UnitSpawner"
-						}
-					]
-				},
-				{
 					name: "UnitCanMove",
 					decorator: null,
 					returnType: "bool",
@@ -4397,17 +4421,6 @@ const types = {
 					decorator: "VTEvent",
 					returnType: "void",
 					args: []
-				},
-				{
-					name: "PassesFilter",
-					decorator: null,
-					returnType: "bool",
-					args: [
-						{
-							name: "uSpawner",
-							type: "UnitSpawner"
-						}
-					]
 				},
 				{
 					name: "UnitCanMove",
@@ -5615,17 +5628,6 @@ const types = {
 			name: "APCUnitSpawn",
 			methods: [
 				{
-					name: "PassesFilter",
-					decorator: null,
-					returnType: "bool",
-					args: [
-						{
-							name: "uSpawner",
-							type: "UnitSpawner"
-						}
-					]
-				},
-				{
 					name: "HasPassengerBay",
 					decorator: null,
 					returnType: "bool",
@@ -6111,17 +6113,6 @@ const types = {
 		{
 			name: "ArtilleryUnitSpawn",
 			methods: [
-				{
-					name: "PassesFilter",
-					decorator: null,
-					returnType: "bool",
-					args: [
-						{
-							name: "uSpawner",
-							type: "UnitSpawner"
-						}
-					]
-				},
 				{
 					name: "FireOnWaypoint",
 					decorator: "VTEvent",
@@ -6653,17 +6644,6 @@ const types = {
 						{
 							name: "r",
 							type: "bool"
-						}
-					]
-				},
-				{
-					name: "PassesFilter",
-					decorator: null,
-					returnType: "bool",
-					args: [
-						{
-							name: "uSpawner",
-							type: "UnitSpawner"
 						}
 					]
 				},
@@ -7905,17 +7885,6 @@ const types = {
 			name: "PlayerSpawn",
 			methods: [
 				{
-					name: "PassesFilter",
-					decorator: null,
-					returnType: "bool",
-					args: [
-						{
-							name: "uSpawner",
-							type: "UnitSpawner"
-						}
-					]
-				},
-				{
 					name: "GetTeam",
 					decorator: null,
 					returnType: "Teams",
@@ -8411,17 +8380,6 @@ const types = {
 						{
 							name: "time",
 							type: "float"
-						}
-					]
-				},
-				{
-					name: "PassesFilter",
-					decorator: null,
-					returnType: "bool",
-					args: [
-						{
-							name: "uSpawner",
-							type: "UnitSpawner"
 						}
 					]
 				},
@@ -9100,7 +9058,7 @@ const types = {
 			]
 		},
 		{
-			name: "ScenarioTriggerEvents",
+			name: "TriggerEvent",
 			methods: [
 				{
 					name: "Enable",
@@ -9125,101 +9083,6 @@ const types = {
 					decorator: null,
 					returnType: "void",
 					args: []
-				},
-				{
-					name: "GetEvent",
-					decorator: null,
-					returnType: "TriggerEvent",
-					args: [
-						{
-							name: "id",
-							type: "int"
-						}
-					]
-				},
-				{
-					name: "AddNewEvent",
-					decorator: null,
-					returnType: "TriggerEvent",
-					args: []
-				},
-				{
-					name: "DeleteEvent",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "id",
-							type: "int"
-						}
-					]
-				},
-				{
-					name: "DestroyAll",
-					decorator: null,
-					returnType: "void",
-					args: []
-				},
-				{
-					name: "ReportEventFired",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "eventID",
-							type: "int"
-						}
-					]
-				},
-				{
-					name: "BeginScenario",
-					decorator: null,
-					returnType: "void",
-					args: []
-				},
-				{
-					name: "LoadFromScenarioNode",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "scenarioNode",
-							type: "ConfigNode"
-						}
-					]
-				},
-				{
-					name: "SaveToScenarioNode",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "scenarioNode",
-							type: "ConfigNode"
-						}
-					]
-				},
-				{
-					name: "QuicksaveToNode",
-					decorator: null,
-					returnType: "ConfigNode",
-					args: [
-						{
-							name: "nodeName",
-							type: "string"
-						}
-					]
-				},
-				{
-					name: "QuickloadFromNode",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "stNode",
-							type: "ConfigNode"
-						}
-					]
 				}
 			]
 		},
@@ -9432,53 +9295,8 @@ const types = {
 			]
 		},
 		{
-			name: "VTScenario",
+			name: "ScenarioSystemActions",
 			methods: [
-				{
-					name: "Dispose",
-					decorator: null,
-					returnType: "void",
-					args: []
-				},
-				{
-					name: "Rewind",
-					decorator: null,
-					returnType: "void",
-					args: []
-				},
-				{
-					name: "SetTime",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "seconds",
-							type: "float"
-						}
-					]
-				},
-				{
-					name: "PassesFilter",
-					decorator: null,
-					returnType: "bool",
-					args: [
-						{
-							name: "uSpawner",
-							type: "UnitSpawner"
-						}
-					]
-				},
-				{
-					name: "PassesFilter",
-					decorator: null,
-					returnType: "bool",
-					args: [
-						{
-							name: "uSpawner",
-							type: "UnitSpawner"
-						}
-					]
-				},
 				{
 					name: "RadioMessage",
 					decorator: "VTEvent",
@@ -9904,7 +9722,12 @@ const types = {
 							type: "float"
 						}
 					]
-				},
+				}
+			]
+		},
+		{
+			name: "ScenarioTutorialActions",
+			methods: [
 				{
 					name: "DisplayMessage",
 					decorator: "VTEvent",
@@ -10048,7 +9871,12 @@ const types = {
 					decorator: null,
 					returnType: "bool",
 					args: []
-				},
+				}
+			]
+		},
+		{
+			name: "ScenarioGlobalValueActions",
+			methods: [
 				{
 					name: "SetValue",
 					decorator: "VTEvent",
@@ -10179,7 +10007,12 @@ const types = {
 							type: "GlobalValue"
 						}
 					]
-				},
+				}
+			]
+		},
+		{
+			name: "ScenarioGlobalUnitActions",
+			methods: [
 				{
 					name: "SpawnUnits",
 					decorator: "VTEvent",
@@ -10216,289 +10049,12 @@ const types = {
 							type: "bool"
 						}
 					]
-				},
-				{
-					name: "VerifyTeamSlots",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "int",
-							type: "out"
-						},
-						{
-							name: "int",
-							type: "out"
-						}
-					]
-				},
-				{
-					name: "AddResourceUser",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "user",
-							type: "IScenarioResourceUser"
-						}
-					]
-				},
-				{
-					name: "RemoveResourceUser",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "user",
-							type: "IScenarioResourceUser"
-						}
-					]
-				},
-				{
-					name: "DestroyAllScenarioObjects",
-					decorator: null,
-					returnType: "void",
-					args: []
-				},
-				{
-					name: "LoadFromInfo",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "info",
-							type: "VTScenarioInfo"
-						}
-					]
-				},
-				{
-					name: "LoadFromNode",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "saveNode",
-							type: "ConfigNode"
-						}
-					]
-				},
-				{
-					name: "SaveToConfigNode",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "node",
-							type: "ConfigNode"
-						}
-					]
-				},
-				{
-					name: "GetMPSeatCounts",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "int",
-							type: "out"
-						},
-						{
-							name: "int",
-							type: "out"
-						}
-					]
-				},
-				{
-					name: "GetAirport",
-					decorator: null,
-					returnType: "AirportManager",
-					args: [
-						{
-							name: "id",
-							type: "string"
-						}
-					]
-				},
-				{
-					name: "GetAirport",
-					decorator: null,
-					returnType: "AirportManager",
-					args: [
-						{
-							name: "airportID",
-							type: "int"
-						}
-					]
-				},
-				{
-					name: "GetAirportID",
-					decorator: null,
-					returnType: "int",
-					args: [
-						{
-							name: "ap",
-							type: "AirportManager"
-						}
-					]
-				},
-				{
-					name: "SetRTBWaypoint",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "wptObj",
-							type: "object"
-						}
-					]
-				},
-				{
-					name: "SetRefuelWaypoint",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "wptObj",
-							type: "object"
-						}
-					]
-				},
-				{
-					name: "GetUnitOrWaypointID",
-					decorator: null,
-					returnType: "string",
-					args: [
-						{
-							name: "wptObj",
-							type: "object"
-						}
-					]
-				},
-				{
-					name: "GetUnitOrWaypoint",
-					decorator: null,
-					returnType: "object",
-					args: [
-						{
-							name: "unitOrWptID",
-							type: "string"
-						}
-					]
-				},
-				{
-					name: "GetUnitOrWaypointTransform",
-					decorator: null,
-					returnType: "Transform",
-					args: [
-						{
-							name: "unitOrWptID",
-							type: "string"
-						}
-					]
-				},
-				{
-					name: "UpdateResources",
-					decorator: null,
-					returnType: "void",
-					args: []
-				},
-				{
-					name: "GetResourceManifestIndex",
-					decorator: null,
-					returnType: "int",
-					args: [
-						{
-							name: "path",
-							type: "string"
-						}
-					]
-				},
-				{
-					name: "GetResourcePath",
-					decorator: null,
-					returnType: "string",
-					args: [
-						{
-							name: "manifestIdx",
-							type: "int"
-						}
-					]
-				},
-				{
-					name: "QuicksaveScenario",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "qsNode",
-							type: "ConfigNode"
-						}
-					]
-				},
-				{
-					name: "QuickloadScenario",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "qsNode",
-							type: "ConfigNode"
-						}
-					]
-				},
-				{
-					name: "FinalQuicksaveResume",
-					decorator: null,
-					returnType: "void",
-					args: []
-				},
-				{
-					name: "RemoteFireTriggerEvent",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "triggerName",
-							type: "string"
-						}
-					]
-				},
-				{
-					name: "RemotePlayCustomBGM",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "audioPath",
-							type: "string"
-						},
-						{
-							name: "time",
-							type: "float"
-						},
-						{
-							name: "loop",
-							type: "bool"
-						}
-					]
 				}
 			]
 		},
 		{
 			name: "VTSequencedEvent",
 			methods: [
-				{
-					name: "Restart",
-					decorator: null,
-					returnType: "void",
-					args: []
-				},
-				{
-					name: "Stop",
-					decorator: null,
-					returnType: "void",
-					args: []
-				},
 				{
 					name: "QuicksaveToNode",
 					decorator: null,
@@ -10821,7 +10377,7 @@ const types = {
 			]
 		},
 		{
-			name: "VTUnitGroup",
+			name: "UnitGroupActions",
 			methods: [
 				{
 					name: "GetTeam",
@@ -10951,6 +10507,256 @@ const types = {
 					decorator: "SCCUnitProperty",
 					returnType: "bool",
 					args: []
+				}
+			]
+		},
+		{
+			name: "UnitGroupActionsTargetPrefs",
+			methods: [
+				{
+					name: "SetNonTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "nonTargets",
+							type: "UnitReferenceListOtherSubs"
+						}
+					]
+				},
+				{
+					name: "AddNonTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "nonTargets",
+							type: "UnitReferenceListOtherSubs"
+						}
+					]
+				},
+				{
+					name: "RemoveNonTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "nonTargets",
+							type: "UnitReferenceListOtherSubs"
+						}
+					]
+				},
+				{
+					name: "ClearNonTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: []
+				},
+				{
+					name: "SetPriorityTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "targets",
+							type: "UnitReferenceListOtherSubs"
+						}
+					]
+				},
+				{
+					name: "AddPriorityTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "targets",
+							type: "UnitReferenceListOtherSubs"
+						}
+					]
+				},
+				{
+					name: "RemovePriorityTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "targets",
+							type: "UnitReferenceListOtherSubs"
+						}
+					]
+				},
+				{
+					name: "ClearPriorityTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: []
+				},
+				{
+					name: "GetTeam",
+					decorator: null,
+					returnType: "Teams",
+					args: []
+				},
+				{
+					name: "SpawnAll",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: []
+				},
+				{
+					name: "SetInvincible",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "i",
+							type: "bool"
+						}
+					]
+				},
+				{
+					name: "KillAll",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: []
+				},
+				{
+					name: "ForceAltSpawn",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "altSpawnNumber",
+							type: "int"
+						}
+					]
+				},
+				{
+					name: "RandomizeAltSpawns",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: []
+				},
+				{
+					name: "SCC_AllAlive",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: []
+				},
+				{
+					name: "SCC_NumAlive",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "comparison",
+							type: "IntComparisons"
+						},
+						{
+							name: "count",
+							type: "float"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyNearWaypoint",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "wpt",
+							type: "Waypoint"
+						},
+						{
+							name: "radius",
+							type: "float"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyNearPoint",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "fp",
+							type: "FixedPoint"
+						},
+						{
+							name: "radius",
+							type: "float"
+						},
+						{
+							name: "spherical",
+							type: "bool"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyUnitDetected",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "team",
+							type: "Teams"
+						}
+					]
+				},
+				{
+					name: "SCC_AllUnitDetected",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "team",
+							type: "Teams"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyGetsKilled",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: []
+				}
+			]
+		},
+		{
+			name: "SeaGroupActions",
+			methods: [
+				{
+					name: "MoveTo",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "waypoint",
+							type: "Waypoint"
+						}
+					]
+				},
+				{
+					name: "MovePath",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "path",
+							type: "FollowPath"
+						}
+					]
+				},
+				{
+					name: "SetEngageEnemies",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "engage",
+							type: "bool"
+						}
+					]
 				},
 				{
 					name: "SetNonTargets",
@@ -11031,38 +10837,139 @@ const types = {
 					args: []
 				},
 				{
-					name: "MoveTo",
-					decorator: "VTEvent",
-					returnType: "void",
-					args: [
-						{
-							name: "waypoint",
-							type: "Waypoint"
-						}
-					]
+					name: "GetTeam",
+					decorator: null,
+					returnType: "Teams",
+					args: []
 				},
 				{
-					name: "MovePath",
+					name: "SpawnAll",
 					decorator: "VTEvent",
 					returnType: "void",
-					args: [
-						{
-							name: "path",
-							type: "FollowPath"
-						}
-					]
+					args: []
 				},
 				{
-					name: "SetEngageEnemies",
+					name: "SetInvincible",
 					decorator: "VTEvent",
 					returnType: "void",
 					args: [
 						{
-							name: "engage",
+							name: "i",
 							type: "bool"
 						}
 					]
 				},
+				{
+					name: "KillAll",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: []
+				},
+				{
+					name: "ForceAltSpawn",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "altSpawnNumber",
+							type: "int"
+						}
+					]
+				},
+				{
+					name: "RandomizeAltSpawns",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: []
+				},
+				{
+					name: "SCC_AllAlive",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: []
+				},
+				{
+					name: "SCC_NumAlive",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "comparison",
+							type: "IntComparisons"
+						},
+						{
+							name: "count",
+							type: "float"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyNearWaypoint",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "wpt",
+							type: "Waypoint"
+						},
+						{
+							name: "radius",
+							type: "float"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyNearPoint",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "fp",
+							type: "FixedPoint"
+						},
+						{
+							name: "radius",
+							type: "float"
+						},
+						{
+							name: "spherical",
+							type: "bool"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyUnitDetected",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "team",
+							type: "Teams"
+						}
+					]
+				},
+				{
+					name: "SCC_AllUnitDetected",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "team",
+							type: "Teams"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyGetsKilled",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: []
+				}
+			]
+		},
+		{
+			name: "AirGroupActions",
+			methods: [
 				{
 					name: "IsAllied",
 					decorator: null,
@@ -11416,6 +11323,140 @@ const types = {
 					args: []
 				},
 				{
+					name: "GetTeam",
+					decorator: null,
+					returnType: "Teams",
+					args: []
+				},
+				{
+					name: "SpawnAll",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: []
+				},
+				{
+					name: "SetInvincible",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "i",
+							type: "bool"
+						}
+					]
+				},
+				{
+					name: "KillAll",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: []
+				},
+				{
+					name: "ForceAltSpawn",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "altSpawnNumber",
+							type: "int"
+						}
+					]
+				},
+				{
+					name: "RandomizeAltSpawns",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: []
+				},
+				{
+					name: "SCC_AllAlive",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: []
+				},
+				{
+					name: "SCC_NumAlive",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "comparison",
+							type: "IntComparisons"
+						},
+						{
+							name: "count",
+							type: "float"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyNearWaypoint",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "wpt",
+							type: "Waypoint"
+						},
+						{
+							name: "radius",
+							type: "float"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyNearPoint",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "fp",
+							type: "FixedPoint"
+						},
+						{
+							name: "radius",
+							type: "float"
+						},
+						{
+							name: "spherical",
+							type: "bool"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyUnitDetected",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "team",
+							type: "Teams"
+						}
+					]
+				},
+				{
+					name: "SCC_AllUnitDetected",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "team",
+							type: "Teams"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyGetsKilled",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: []
+				}
+			]
+		},
+		{
+			name: "GroundGroupActions",
+			methods: [
+				{
 					name: "MoveTo",
 					decorator: "VTEvent",
 					returnType: "void",
@@ -11466,8 +11507,80 @@ const types = {
 					]
 				},
 				{
-					name: "DestroyObjects",
-					decorator: null,
+					name: "SetNonTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "nonTargets",
+							type: "UnitReferenceListOtherSubs"
+						}
+					]
+				},
+				{
+					name: "AddNonTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "nonTargets",
+							type: "UnitReferenceListOtherSubs"
+						}
+					]
+				},
+				{
+					name: "RemoveNonTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "nonTargets",
+							type: "UnitReferenceListOtherSubs"
+						}
+					]
+				},
+				{
+					name: "ClearNonTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: []
+				},
+				{
+					name: "SetPriorityTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "targets",
+							type: "UnitReferenceListOtherSubs"
+						}
+					]
+				},
+				{
+					name: "AddPriorityTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "targets",
+							type: "UnitReferenceListOtherSubs"
+						}
+					]
+				},
+				{
+					name: "RemovePriorityTargets",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: [
+						{
+							name: "targets",
+							type: "UnitReferenceListOtherSubs"
+						}
+					]
+				},
+				{
+					name: "ClearPriorityTargets",
+					decorator: "VTEvent",
 					returnType: "void",
 					args: []
 				},
@@ -11478,124 +11591,127 @@ const types = {
 					args: []
 				},
 				{
-					name: "GetEventTargetID",
-					decorator: null,
-					returnType: "int",
-					args: []
-				},
-				{
-					name: "BeginScenario",
-					decorator: null,
+					name: "SpawnAll",
+					decorator: "VTEvent",
 					returnType: "void",
 					args: []
 				},
 				{
-					name: "AddUnitToGroup",
-					decorator: null,
+					name: "SetInvincible",
+					decorator: "VTEvent",
 					returnType: "void",
 					args: [
 						{
-							name: "unit",
-							type: "UnitSpawner"
-						},
-						{
-							name: "groupID",
-							type: "PhoneticLetters"
+							name: "i",
+							type: "bool"
 						}
 					]
 				},
 				{
-					name: "GetUnitGroup",
-					decorator: null,
-					returnType: "UnitGroup",
-					args: [
-						{
-							name: "team",
-							type: "Teams"
-						},
-						{
-							name: "groupID",
-							type: "PhoneticLetters"
-						}
-					]
+					name: "KillAll",
+					decorator: "VTEvent",
+					returnType: "void",
+					args: []
 				},
 				{
-					name: "GetUnitGroup",
-					decorator: null,
-					returnType: "UnitGroup",
+					name: "ForceAltSpawn",
+					decorator: "VTEvent",
+					returnType: "void",
 					args: [
 						{
-							name: "eventTargetID",
+							name: "altSpawnNumber",
 							type: "int"
 						}
 					]
 				},
 				{
-					name: "RemoveUnitFromGroups",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "unit",
-							type: "UnitSpawner"
-						}
-					]
-				},
-				{
-					name: "LoadFromScenarioNode",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "scenarioNode",
-							type: "ConfigNode"
-						}
-					]
-				},
-				{
-					name: "SaveToScenarioNode",
-					decorator: null,
-					returnType: "void",
-					args: [
-						{
-							name: "scenarioNode",
-							type: "ConfigNode"
-						}
-					]
-				},
-				{
-					name: "BeginScenario",
-					decorator: null,
+					name: "RandomizeAltSpawns",
+					decorator: "VTEvent",
 					returnType: "void",
 					args: []
 				},
 				{
-					name: "DestroyAll",
-					decorator: null,
-					returnType: "void",
+					name: "SCC_AllAlive",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
 					args: []
 				},
 				{
-					name: "QuicksaveToNode",
-					decorator: null,
-					returnType: "ConfigNode",
+					name: "SCC_NumAlive",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
 					args: [
 						{
-							name: "nodeName",
-							type: "string"
+							name: "comparison",
+							type: "IntComparisons"
+						},
+						{
+							name: "count",
+							type: "float"
 						}
 					]
 				},
 				{
-					name: "QuickloadFromNode",
-					decorator: null,
-					returnType: "void",
+					name: "SCC_AnyNearWaypoint",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
 					args: [
 						{
-							name: "node",
-							type: "ConfigNode"
+							name: "wpt",
+							type: "Waypoint"
+						},
+						{
+							name: "radius",
+							type: "float"
 						}
 					]
+				},
+				{
+					name: "SCC_AnyNearPoint",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "fp",
+							type: "FixedPoint"
+						},
+						{
+							name: "radius",
+							type: "float"
+						},
+						{
+							name: "spherical",
+							type: "bool"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyUnitDetected",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "team",
+							type: "Teams"
+						}
+					]
+				},
+				{
+					name: "SCC_AllUnitDetected",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: [
+						{
+							name: "team",
+							type: "Teams"
+						}
+					]
+				},
+				{
+					name: "SCC_AnyGetsKilled",
+					decorator: "SCCUnitProperty",
+					returnType: "bool",
+					args: []
 				}
 			]
 		}
