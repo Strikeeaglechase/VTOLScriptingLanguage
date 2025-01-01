@@ -177,7 +177,7 @@ class VTSGenerator {
 	}
 
 	@Track
-	public conditionalAction(name: string) {
+	public conditionalAction(name: string, addToCaList = true) {
 		const condAction = new VTNode<ConditionalActionKeys>("ConditionalAction");
 		condAction.setValue("id", this.nextId());
 		condAction.setValue("name", null);
@@ -187,8 +187,10 @@ class VTSGenerator {
 		baseBlock.setValue("blockId", this.nextId());
 		condAction.addChild(baseBlock);
 
-		const parent = this.vts.getNode("ConditionalActions");
-		parent.addChild(condAction);
+		if (addToCaList) {
+			const parent = this.vts.getNode("ConditionalActions");
+			parent.addChild(condAction);
+		}
 
 		return condAction;
 	}

@@ -95,6 +95,29 @@ fn myFunction(a, b) = 42 {
 
 The sequence here will have the ID 42
 
+Functions can be stored/called via GVs, under the hood this stores the function ID and uses lookup when you call it.
+
+```rust
+fn add(a, b) {
+	return a + b;
+}
+
+let x = add;
+let result = x(1, 2);
+```
+
+If you set a static sequence ID for the function the function id that's stored in GVs will match that, which may be useful if you want to do arbitrary indexing, ie:
+
+```rust
+fn add(a, b) = 12 { return a + b; }
+fn sub(a, b) = 13 { return a - b; }
+
+let x = add; // 'x' gets the value '12'
+let result = x(1, 2); // result = 3
+x += 1; // Increment 'x' to '13'
+let result2 = x(1, 2); // result2 = -1
+```
+
 ## Built in Functions
 
 There are currently two built in functions

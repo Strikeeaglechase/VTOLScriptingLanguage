@@ -1,6 +1,6 @@
 import { AST } from "../parser/ast.js";
 import { stringifyVTValue, VTNode, VTValue } from "../vtsParser.js";
-import { BaseBlockKeys, CompKeys, GVKeys, SequenceKeys } from "../vtTypes.js";
+import { BaseBlockKeys, CompKeys, ConditionalActionKeys, GVKeys, SequenceKeys } from "../vtTypes.js";
 import { Context, GV, Iterator } from "./context.js";
 import { loadGameTypes, Method } from "./gameTypes.js";
 import { convertAstToMethodParameters, convertAstToParamInfo } from "./vtArgConverter.js";
@@ -50,18 +50,10 @@ const varIds: Record<keyof typeof vars, number> = {
 
 const stackIdx = (i: number) => `_stack_${i}`;
 
-// Traditionally function parameters are pushed onto the stack and popped within the function
-// Because we don't support recursion each function has its own singular dedicated variable
-// So we can write directly to that variable, which *can* save instructions when optimization is enabled
-enum FunctionParamMode {
-	Stack,
-	DirectWrite
-}
-const functionParamMode: FunctionParamMode = FunctionParamMode.DirectWrite;
-
 interface FunctionDeclaration {
 	name: string;
 	id: number;
+	gvValue: number;
 	context: Context;
 	params: GV[];
 	type: "sequence" | "conditionalAction";
@@ -87,6 +79,9 @@ class Compiler {
 	private contextStack: Context[] = [];
 	private refVars: RefVar[] = [];
 	private functions: FunctionDeclaration[] = [];
+	private functionGvVal = 0;
+	private functionExecCaId: number;
+	private functionExecCa: VTNode<ConditionalActionKeys>;
 
 	private pushActionId = 0;
 	private popActionId = 0;
@@ -223,6 +218,68 @@ class Compiler {
 		}
 	}
 
+	private prepFunctionGvExec() {
+		this.functionExecCa = this.gen.conditionalAction("functionExec", false);
+		this.functionExecCaId = this.functionExecCa.getValue("id");
+	}
+
+	private finalizeFunctionGvExec() {
+		if (this.functions.length == 0) return;
+
+		const baseCaseFn = this.functions[0];
+		const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.result), baseCaseFn.gvValue, "Equals"));
+		const actionParent = new VTNode<"eventName">("ACTIONS");
+		actionParent.setValue("eventName", null);
+
+		if (baseCaseFn.params.length > 0) {
+			this.withContext(actionParent, () => {
+				baseCaseFn.params.reverse().forEach(param => {
+					this.pop();
+					this.add(this.gen.gvCopy(this.vn(vars.result), param.id));
+				});
+			});
+		}
+		actionParent.addChild(baseCaseFn.type == "conditionalAction" ? this.gen.fireConditionalAction(baseCaseFn.id) : this.gen.callSequence(baseCaseFn.id));
+
+		const baseBlock = this.functionExecCa.findChildWithName("BASE_BLOCK");
+		baseBlock.addChild(baseCaseConditional);
+		baseBlock.addChild(actionParent);
+
+		this.functions.forEach((fn, idx) => {
+			if (idx == 0) return;
+			const elseIf = new VTNode<BaseBlockKeys>("ELSE_IF");
+			elseIf.setValue("{blockName}", fn.name);
+			elseIf.setValue("blockId", this.nextId());
+			const elseIfConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.result), fn.gvValue, "Equals"));
+
+			const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
+			elseIfActionParent.setValue("eventName", null);
+			if (fn.params.length > 0) {
+				this.withContext(elseIfActionParent, () => {
+					fn.params.reverse().forEach(param => {
+						this.pop();
+						this.add(this.gen.gvCopy(this.vn(vars.result), param.id));
+					});
+				});
+			}
+
+			elseIfActionParent.addChild(fn.type == "conditionalAction" ? this.gen.fireConditionalAction(fn.id) : this.gen.callSequence(fn.id));
+
+			elseIf.addChild(elseIfConditional);
+			elseIf.addChild(elseIfActionParent);
+
+			baseBlock.addChild(elseIf);
+		});
+
+		const elseBlock = new VTNode<"eventName">("ELSE_ACTIONS");
+		elseBlock.setValue("eventName", null);
+		elseBlock.addChild(this.gen.gvSet(this.vn(vars.indexOutOfBoundsFlag), 1));
+		baseBlock.addChild(elseBlock);
+
+		const caParent = this.vts.getNode("ConditionalActions");
+		caParent.addChild(this.functionExecCa);
+	}
+
 	private push() {
 		this.add(this.gen.fireConditionalAction(this.pushActionId));
 	}
@@ -240,7 +297,7 @@ class Compiler {
 			this.makeVar(vars[key], varIds[key]);
 		}
 		this.createStack();
-		// this.gen.stackOverflowExceptionObjective();
+		this.prepFunctionGvExec();
 		if (this.opts.generateExceptionObjectives) {
 			this.gen.exceptionObjective("Stack Overflow", this.vn(vars.stackOverflowFlag));
 			this.gen.exceptionObjective("Index Out of Bounds", this.vn(vars.indexOutOfBoundsFlag));
@@ -260,6 +317,8 @@ class Compiler {
 		} else {
 			this.add(this.gen.gvSet(this.vn(vars.exitFlag), -1)); // jumpFlag=-1 = halt
 		}
+
+		this.finalizeFunctionGvExec();
 
 		return this.vts;
 	}
@@ -346,8 +405,18 @@ class Compiler {
 	}
 
 	private handleVarReference(ast: AST.VariableReference) {
-		this.add(this.gen.gvCopy(this.vn(ast.name.value), this.vn(vars.result)));
-		this.push();
+		if (this.context.hasGV(ast.name.value)) {
+			this.add(this.gen.gvCopy(this.vn(ast.name.value), this.vn(vars.result)));
+			this.push();
+		} else {
+			const fn = this.functions.find(f => f.name == ast.name.value);
+			if (fn) {
+				this.add(this.gen.gvSet(this.vn(vars.result), fn.gvValue));
+				this.push();
+			} else {
+				throw new Error(`Variable "${ast.name.value}" not found`);
+			}
+		}
 	}
 
 	private handleExternalDeclaration(ast: AST.Declare) {
@@ -375,11 +444,13 @@ class Compiler {
 				}
 				if (typeof ast.params[0].value != "number") throw new Error("Sequence declaration requires a number as the external id");
 
+				while (this.functions.some(fn => fn.gvValue == this.functionGvVal)) this.functionGvVal++;
 				const decl: FunctionDeclaration = {
 					id: ast.params[0].value as number,
 					context: new Context(this.context, this.nextId.bind(this), ""),
 					name: ast.name.value,
 					params: [],
+					gvValue: this.functionGvVal++,
 					type: "sequence"
 				};
 
@@ -413,7 +484,9 @@ class Compiler {
 				this.add(this.gen.gvMath(this.vn(vars.mathA), this.vn(vars.mathB), "AddValues"));
 				break;
 			case "-":
-				this.add(this.gen.gvMath(this.vn(vars.mathA), this.vn(vars.mathB), "SubtractValues"));
+				// VTOL does subtraction as dest - source, so we have to swap the operands
+				this.add(this.gen.gvMath(this.vn(vars.mathB), this.vn(vars.mathA), "SubtractValues"));
+				this.add(this.gen.gvCopy(this.vn(vars.mathA), this.vn(vars.mathB)));
 				break;
 			case "*":
 				this.add(this.gen.gvMath(this.vn(vars.mathA), this.vn(vars.mathB), "MultiplyValues"));
@@ -741,11 +814,20 @@ class Compiler {
 		}
 
 		const fnCtx = new Context(this.context, this.nextId.bind(this), ast.name.value);
+		let gvValue = 0;
+		if (ast.forceId && !isNaN(+ast.forceId.value)) {
+			gvValue = +ast.forceId.value;
+		} else {
+			while (this.functions.some(fn => fn.gvValue == this.functionGvVal)) this.functionGvVal++;
+			gvValue = this.functionGvVal++;
+		}
+
 		const declaration: FunctionDeclaration = {
 			name: ast.name.value,
 			id: fnCaSeq.getValue("id") as number,
 			context: fnCtx,
 			params: [],
+			gvValue: gvValue,
 			type: "conditionalAction"
 		};
 
@@ -758,13 +840,6 @@ class Compiler {
 		});
 
 		this.withContext(fnCaSeq, () => {
-			if (functionParamMode == FunctionParamMode.Stack) {
-				ast.parameters.reverse().forEach(param => {
-					this.pop();
-					this.add(this.gen.gvCopy(this.vn(vars.result), this.vn(param.value)));
-				});
-			}
-
 			ast.body.forEach(child => this.compileAst(child));
 		});
 		this.contextStack.pop();
@@ -776,16 +851,23 @@ class Compiler {
 		if (ast.target.value == "rand") return this.handleRandFunctionCall(ast);
 
 		const fn = this.functions.find(f => f.name == ast.target.value);
-		if (!fn) throw new Error(`Function "${ast.target.value}" not found`);
+		if (!fn) {
+			if (this.context.hasGV(ast.target.value)) {
+				ast.arguments.forEach((arg, idx) => this.compileAst(arg));
+				this.add(this.gen.gvCopy(this.vn(ast.target.value), this.vn(vars.result)));
+				this.add(this.gen.fireConditionalAction(this.functionExecCaId));
+				return;
+			} else {
+				throw new Error(`Function "${ast.target.value}" not found`);
+			}
+		}
 
 		ast.arguments.forEach((arg, idx) => {
 			this.compileAst(arg);
 
-			if (functionParamMode == FunctionParamMode.DirectWrite) {
-				this.pop();
-				const param = fn.params[idx];
-				this.add(this.gen.gvCopy(this.vn(vars.result), param.id));
-			}
+			this.pop();
+			const param = fn.params[idx];
+			this.add(this.gen.gvCopy(this.vn(vars.result), param.id));
 		});
 
 		if (fn.type == "sequence") this.add(this.gen.callSequence(fn.id));

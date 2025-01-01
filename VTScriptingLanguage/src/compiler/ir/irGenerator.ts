@@ -58,7 +58,7 @@ class IRGenerator {
 
 	private parseArg(arg: any): IRArg {
 		// const argAsNodeInfo = this.nodeInfos.find(n => n.result == arg);
-		const argAsNodeInfo = this.nodeInfosMap[arg.id];
+		const argAsNodeInfo = this.nodeInfosMap[arg?.id];
 		if (argAsNodeInfo) {
 			const args = argAsNodeInfo.arguments.map(a => this.parseArg(a));
 			return { type: "node", value: { method: argAsNodeInfo.methodName, args: args, ids: argAsNodeInfo.ids } };

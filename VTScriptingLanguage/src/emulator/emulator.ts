@@ -224,6 +224,11 @@ class Emulator {
 						destination.value += source.value;
 						break;
 					}
+					case "SubtractValues": {
+						const [source, destination] = this.parseEventArgs(event) as [GV, GV];
+						destination.value -= source.value;
+						break;
+					}
 					case "MultiplyValues": {
 						const [source, destination] = this.parseEventArgs(event) as [GV, GV];
 						destination.value *= source.value;
