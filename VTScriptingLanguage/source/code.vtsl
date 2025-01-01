@@ -1,3 +1,6 @@
+define targets: AIUnitSpawn = (1..2);
+
+
 //EXPECT r1=32
 //EXPECT r2=-10
 //EXPECT r3=34
@@ -16,3 +19,5 @@ let r2 = x(11, 21);
 
 x -= 1;
 let r3 = x(12, 22);
+
+targets.ForceAltSpawn(0);

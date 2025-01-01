@@ -37,7 +37,14 @@ class AnalyzerContext {
 		return false;
 	}
 
-	public getDefine(name: string) {
+	public hasDefine(name: string) {
+		const hasLocal = this.defines.find(d => d.name == name);
+		if (hasLocal) return true;
+		if (this.parent) return this.parent.hasDefine(name);
+		return false;
+	}
+
+	public getDefine(name: string): { name: string; type: string } {
 		const local = this.defines.find(d => d.name == name);
 		if (local) return local;
 
@@ -70,7 +77,7 @@ class Analyzer {
 	// private nodeContextMap: Map<AST.AnyAST, AnalyzerContext> = new Map();
 	private contextRanges: { startLine: number; startColumn: number; endLine: number; endColumn: number; context: AnalyzerContext }[] = [];
 	private contexts: AnalyzerContext[] = [new AnalyzerContext(null)];
-	private unitLists: { name: string; type: string }[] = [];
+	private functions: AST.FunctionDeclaration[] = [];
 
 	private get currentContext() {
 		return this.contexts[this.contexts.length - 1];
@@ -99,6 +106,7 @@ class Analyzer {
 				break;
 
 			case AST.Type.FunctionDeclaration: {
+				this.functions.push(ast);
 				const ctx = new AnalyzerContext(this.currentContext);
 				this.contexts.push(ctx);
 				this.contextRanges.push({ startLine: ast.line, startColumn: ast.column, endLine: ast.lineEnd, endColumn: ast.columnEnd, context: ctx });
@@ -132,16 +140,19 @@ class Analyzer {
 		if (!selectedToken) return null;
 
 		let isPartOfDotExpression = selectedToken.type == TokenType.Symbol && selectedToken.value == ".";
-		let indexOffset = -1;
+		// let indexOffset = -1;
+		let index = this.tokens.indexOf(selectedToken) - 1;
+		if (index < 0) return null;
 		if (!isPartOfDotExpression) {
-			const previousToken = this.tokens[this.tokens.indexOf(selectedToken) - 1];
+			const previousToken = this.tokens[index];
 			isPartOfDotExpression = previousToken.type == TokenType.Symbol && previousToken.value == ".";
-			indexOffset = -2;
+			index--;
 		}
 
 		if (!isPartOfDotExpression) return null;
+		if (index < 0) return null;
 
-		const enumName = this.tokens[this.tokens.indexOf(selectedToken) + indexOffset].value;
+		const enumName = this.tokens[index].value;
 		const enumType = loadGameTypes().enums.find(e => e.name == enumName);
 		return enumType;
 	}
@@ -156,6 +167,7 @@ class Analyzer {
 
 		let isPartOfDotExpression = selectedToken.type == TokenType.Symbol && selectedToken.value == ".";
 		let index = this.tokens.indexOf(selectedToken) - 1;
+		if (index < 0) return null;
 		if (!isPartOfDotExpression) {
 			const previousToken = this.tokens[index];
 			isPartOfDotExpression = previousToken.type == TokenType.Symbol && previousToken.value == ".";
@@ -163,17 +175,22 @@ class Analyzer {
 		}
 
 		if (!isPartOfDotExpression) return null;
+		if (index < 0) return null;
 
 		const maybeModifier = this.tokens[index];
 		if (maybeModifier.type == TokenType.Identifier && (maybeModifier.value == "any" || maybeModifier.value == "all")) index -= 2;
+		if (index < 0) return null;
 
 		const maybeIndexExpr = this.tokens[index];
 		if (maybeIndexExpr.type == TokenType.Symbol && maybeIndexExpr.value == "]") {
 			while (this.tokens[index].value != "[") index--;
 		}
+
+		if (index < 0) return null;
 		const maybeCloseIndexExpr = this.tokens[index];
 		if (maybeCloseIndexExpr.type == TokenType.Symbol && maybeCloseIndexExpr.value == "[") index--;
 
+		if (index < 0) return null;
 		const targetName = this.tokens[index].value;
 		const isEnum = loadGameTypes().enums.some(e => e.name == targetName);
 		if (isEnum) return null;
@@ -192,17 +209,21 @@ class Analyzer {
 			return token.column <= column && token.column + len >= column;
 		});
 		if (!selectedToken) return null;
+
 		let isPartOfColon = selectedToken.type == TokenType.Symbol && selectedToken.value == ":";
-		let indexOffset = -1;
+		// let indexOffset = -1;
+		let index = this.tokens.indexOf(selectedToken) - 1;
+		if (index < 0) return null;
 		if (!isPartOfColon) {
-			const previousToken = this.tokens[this.tokens.indexOf(selectedToken) - 1];
+			const previousToken = this.tokens[index];
 			isPartOfColon = previousToken.type == TokenType.Symbol && previousToken.value == ":";
-			indexOffset = -2;
+			index--;
 		}
 
 		if (!isPartOfColon) return null;
+		if (index - 1 < 0) return null;
 
-		const defineKeyword = this.tokens[this.tokens.indexOf(selectedToken) + indexOffset - 1];
+		const defineKeyword = this.tokens[index - 1];
 		if (!defineKeyword || defineKeyword.type != TokenType.Keyword || defineKeyword.value != "define") return null;
 
 		const classTypes = loadGameTypes().classes.map(c => c.name);
@@ -224,8 +245,6 @@ class Analyzer {
 
 			return inLineBounds && firstLineInside && lastLineInside;
 		});
-
-		contextRange.forEach(ctx => console.log(ctx.context));
 
 		const partialMethod = this.identifyPartialMethodCall(line, column, [this.contexts[0], ...contextRange.map(ctx => ctx.context)]);
 		if (partialMethod) {
@@ -271,6 +290,70 @@ class Analyzer {
 		return result;
 	}
 
+	public getHoverAtLine(line: number, column: number): string {
+		const token = this.tokens.find(token => {
+			if (token.line != line) return false;
+			const len = token.value.length;
+			return token.column <= column && token.column + len >= column;
+		});
+		if (!token) return null;
+		if (token.type != TokenType.Identifier) return null;
+
+		const contextRange = this.contextRanges.filter(ctx => {
+			if (line > ctx.startLine && line < ctx.endLine) return true; // Inside context
+			const firstLineInside = line != ctx.startLine || column >= ctx.startColumn;
+			const lastLineInside = line != ctx.endLine || column <= ctx.endColumn;
+			const inLineBounds = line >= ctx.startLine && line <= ctx.endLine;
+
+			return inLineBounds && firstLineInside && lastLineInside;
+		});
+		const contexts = [this.contexts[0], ...contextRange.map(ctx => ctx.context)];
+		const matchingAst = this.getTokenAst(token);
+		switch (matchingAst.type) {
+			case AST.Type.UnitDefine:
+				if (matchingAst.name == token) return `(unit) ${matchingAst.name.value}: ${matchingAst.unitType.value}`;
+				if (matchingAst.unitType == token) return `(type) ${matchingAst.unitType.value}`;
+				throw new Error("Unknown identifier in UnitDefine");
+			case AST.Type.VariableDeclaration:
+			case AST.Type.VariableReference:
+				const fn = this.functions.find(f => f.name.value == matchingAst.name.value);
+				if (fn) return `(function) ${matchingAst.name.value}(${fn.parameters.map(p => p.value).join(", ")})`;
+			case AST.Type.VariableAssignment:
+				return `let ${matchingAst.name.value}: GV`;
+			case AST.Type.MethodCall:
+				const ctx = contexts.find(ctx => ctx.hasDefine(matchingAst.target.value));
+				if (!ctx) return `(method) Unknown.${matchingAst.method.value}()`;
+				const define = ctx.getDefine(matchingAst.target.value);
+				if (matchingAst.target == token) return `${matchingAst.target.value}: ${define.type}`;
+
+				const method = loadGameTypes()
+					.classes.find(c => c.name == define.type)
+					.methods.find(m => m.name == matchingAst.method.value);
+				if (!method) return `(method) ${define.type}.${matchingAst.method.value}()`;
+
+				const args = method.args.map(a => `${a.name}: ${a.type}`).join(", ");
+				return `(method) ${define.type}.${matchingAst.method.value}(${args}): ${method.returnType}`;
+
+			case AST.Type.FunctionDeclaration:
+				return `(function) ${matchingAst.name.value}(${matchingAst.parameters.map(p => p.value).join(", ")})`;
+			// case AST.Type.PropertyAccess:
+			// 	if (matchingAst.property == token) return SemanticTokenTypes.property;
+			// 	if (matchingAst.target == token) return SemanticTokenTypes.class;
+			// 	throw new Error("Unknown identifier in PropertyAccess");
+			case AST.Type.FunctionCall:
+				const declaration = this.functions.find(f => f.name.value == matchingAst.target.value);
+				if (!declaration) return `(function) ${matchingAst.target.value}()`;
+				const callArgs = declaration.parameters.map(p => p.value).join(", ");
+				return `(function) ${matchingAst.target.value}(${callArgs})`;
+
+			case AST.Type.Declare:
+				if (matchingAst.name != token) return null;
+				if (matchingAst.declareType.value == "GV") return `${matchingAst.name.value}: GV`;
+				if (matchingAst.declareType.value == "Sequence") return `(function) ${matchingAst.name.value}()`;
+				return null;
+		}
+	}
+
 	public getTokenSemantics() {
 		return this.tokens
 			.map(token => {
@@ -311,8 +394,8 @@ class Analyzer {
 		}
 	}
 
-	private findIdentifierSemantics(token: Token): SemanticTokenTypes {
-		const matchingAst = this.flatAst.find(ast => {
+	private getTokenAst(token: Token): AST.AnyAST {
+		return this.flatAst.find(ast => {
 			for (const key in ast) {
 				if (ast[key] === token) return true;
 				if (Array.isArray(ast[key]) && ast[key].includes(token)) return true;
@@ -320,7 +403,10 @@ class Analyzer {
 
 			return false;
 		});
+	}
 
+	private findIdentifierSemantics(token: Token): SemanticTokenTypes {
+		const matchingAst = this.getTokenAst(token);
 		if (!matchingAst) {
 			console.log(`Could not find token ${token.value} (${token.line}:${token.column}) for semantics`);
 			return null;

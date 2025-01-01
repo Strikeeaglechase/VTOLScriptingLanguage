@@ -7,12 +7,13 @@ import {
 	DidOpenTextDocumentParams,
 	DocumentDiagnosticParams,
 	FullDocumentDiagnosticReport,
+	HoverParams,
 	InitializeParams,
 	InitializeResult,
 	SemanticTokensParams,
 	ServerCapabilities
 } from "./lspTypes/protocol.js";
-import { CompletionItem, CompletionList, Diagnostic, SemanticTokens } from "vscode-languageserver-types";
+import { CompletionItem, CompletionList, Diagnostic, Hover, MarkupContent, SemanticTokens } from "vscode-languageserver-types";
 import { Linker } from "./compiler/linker.js";
 import { basicVts } from "./compiler/baseVts.js";
 import { getLastPos } from "./compiler/parser/ast.js";
@@ -79,7 +80,8 @@ const serverCapabilities: ServerCapabilities = {
 	textDocumentSync: {
 		change: TextDocumentSyncKind.Full,
 		openClose: true
-	}
+	},
+	hoverProvider: true
 };
 
 const semanticIdx = (type: SemanticTokenTypes) => serverCapabilities.semanticTokensProvider.legend.tokenTypes.indexOf(type);
@@ -117,6 +119,7 @@ class LSP {
 		this.registerMessageHandler("textDocument/didChange", this.handleDocumentChange.bind(this));
 		this.registerMessageHandler("textDocument/diagnostic", this.handleDiagnosticRequest.bind(this));
 		this.registerMessageHandler("textDocument/completion", this.handleCompletionRequest.bind(this));
+		this.registerMessageHandler("textDocument/hover", this.handleHoverRequest.bind(this));
 	}
 
 	private handleInit(message: RequestMessage, payload: InitializeParams) {
@@ -268,6 +271,23 @@ class LSP {
 		return result;
 	}
 
+	private handleHoverRequest(message: RequestMessage, payload: HoverParams) {
+		const file = this.files[payload.textDocument.uri];
+		const hover = file.linker.analyzer.getHoverAtLine(payload.position.line + 1, payload.position.character + 1);
+		if (!hover) return null;
+
+		const content: MarkupContent = {
+			kind: "markdown",
+			value: "```typescript\n" + hover + "\n```"
+		};
+
+		const result: Hover = {
+			contents: content
+		};
+
+		return result;
+	}
+
 	private setupWs() {
 		let mBuffer = "";
 		let expectLength = 0;
@@ -324,9 +344,7 @@ class LSP {
 		}
 
 		const result = handler(message, message.params);
-		if (result) {
-			this.reply(message, result);
-		}
+		this.reply(message, result);
 	}
 }
 
