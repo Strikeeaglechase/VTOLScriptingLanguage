@@ -7,11 +7,12 @@ import chalk from "chalk";
 import { readVtsFile, writeVtsFile } from "./vtsParser.js";
 import { deleteCompilerNodes } from "./compiler/vtsCleaner.js";
 import { vars } from "./compiler/compiler.js";
+import { basicVts } from "./baseVts.js";
 
 const options: (OptionDefinition & { description: string })[] = [
 	{ name: "input", alias: "i", type: String, description: `Input VTSL file` },
 	{ name: "output", alias: "o", type: String, description: `Output VTS file` },
-	{ name: "vts", type: String, description: `Source VTS to compile into` },
+	{ name: "vts", type: String, description: `Source VTS file to compile into (use "dummy" to compile into a blank vts file)` },
 	{ name: "strip", type: String, description: "Deletes all VTSL code from the VTS file, leaving the original VTS" },
 	{ name: "debug", alias: "d", type: Boolean, defaultValue: false, description: `Enable debug files` },
 	{ name: "opt", type: Number, defaultValue: 2, description: `Sets optimization level (default=2)` },
@@ -70,10 +71,11 @@ if (!args.vts) errExit("No VTS file specified (--vts).");
 if (!args.output) console.log(`No output file specified, compiling in-place to VTS`);
 
 const inputPath = path.resolve(args.input);
-const vtsPath = path.resolve(args.vts);
+const vtsPath = args.vts != "dummy" ? path.resolve(args.vts) : null;
 const outputPath = path.resolve(args.output ?? args.vts);
 if (!fs.existsSync(inputPath)) errExit(`Input file does not exist: ${inputPath}`);
-if (!fs.existsSync(vtsPath)) errExit(`VTS file does not exist: ${vtsPath}`);
+if (vtsPath && !fs.existsSync(vtsPath)) errExit(`VTS file does not exist: ${vtsPath}`);
+if (!vtsPath && !args.output) errExit(`Dummy VTS requires an output file to be specified`);
 
 const debug: boolean = args.debug;
 const optimize: number = args["opt"];
@@ -98,7 +100,7 @@ if (debug) {
 const linker = new Linker();
 if (debug) linker.enableDebugIn(debugPath + "/");
 const source = fs.readFileSync(inputPath, "utf-8");
-const sourceVts = fs.readFileSync(vtsPath, "utf-8");
+const sourceVts = vtsPath ? fs.readFileSync(vtsPath, "utf-8") : basicVts;
 const { compiledVts, irCompiledVts } = linker.compile(source, sourceVts, {
 	continueParseOnError: false,
 	optimizationPassCount: optimize,
@@ -108,11 +110,28 @@ const { compiledVts, irCompiledVts } = linker.compile(source, sourceVts, {
 	generateExceptionObjectives: !noExcept
 });
 
+linker.compiler.warnings.forEach(w => {
+	console.log(chalk.yellow(w));
+});
+
 if (linker.hasErrors) {
-	let errors = "Parser errors:\n";
-	errors += linker.parserErrors.map(e => `\tError ${e.message} at ${e.line}:${e.column}`).join("\n");
-	errors += "\n\nCompiler errors:\n";
-	errors += linker.compilerErrors.map(e => `\tError ${e.message} at ${e.node?.line ?? 0}:${e.node?.column ?? 0}`).join("\n");
+	let errors = ``;
+	if (linker.parserErrors.length > 0) {
+		errors += `Parser errors:\n`;
+		errors += linker.parserErrors
+			.map(e => {
+				let err = `\t${e.message}`;
+				if (!e.message.match(/at \d+:\d+/)) err += ` at ${e.line}:${e.column}`;
+
+				return err;
+			})
+			.join("\n");
+	}
+	if (linker.compilerErrors.length > 0) {
+		if (errors.length > 0) errors += "\n";
+		errors += "Compiler errors:\n";
+		errors += linker.compilerErrors.map(e => `\t${e.message} at ${e.node?.line ?? 0}:${e.node?.column ?? 0}`).join("\n");
+	}
 
 	console.log(chalk.red(`Compilation failed, ${linker.parserErrors.length + linker.compilerErrors.length} errors found.`));
 	console.log(errors);

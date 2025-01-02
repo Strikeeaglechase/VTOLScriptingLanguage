@@ -1,10 +1,10 @@
 export const basicVts = `CustomScenario
 {
 	gameVersion = 1.10.1f1
-	campaignID = chaseFeetPics
+	campaignID = dummy
 	campaignOrderIdx = 0
 	scenarioName = untitled
-	scenarioID = snippet1_2024-08-05
+	scenarioID = dummy
 	scenarioDescription = null
 	mapID = HeliCity3
 	vehicle = AV-42C

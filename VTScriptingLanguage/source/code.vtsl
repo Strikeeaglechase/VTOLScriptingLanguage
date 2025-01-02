@@ -1,4 +1,4 @@
-define test: VTSequencedEvent = 42;
+define test: VTSequencedEvent = 0;
 define gvs: ScenarioGlobalValueActions = 2;
 
 test.BeginEvent();

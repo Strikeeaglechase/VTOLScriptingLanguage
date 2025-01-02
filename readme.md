@@ -30,7 +30,8 @@ node ./dist/compile.js --input [SOURCE] --vts [SOURCE_VTS]
 
     -i, --input string    Input VTSL file
     -o, --output string   Output VTS file
-    --vts string          Source VTS to compile into
+    --vts string          Source VTS file to compile into (use "dummy" to compile
+    								into a blank vts file)
     --strip string        Deletes all VTSL code from the VTS file, leaving the
     								original VTS
     -d, --debug           Enable debug files

@@ -20,12 +20,6 @@ export interface DefinedUnitList {
 	createdActions: UnitListMethod[];
 }
 
-export interface RefVar {
-	name: string;
-	indexExpression: AST.AnyAST;
-	def: DefinedUnitList;
-}
-
 const vars = {
 	result: "c_result",
 	mathA: "c_mathA",
@@ -74,10 +68,10 @@ class Compiler {
 	private vts: VTNode;
 	private _nextId = idStart + 10;
 
+	private externalDeclares: { name: string; type: "gv" | "sequence"; id: number }[] = [];
 	private defines: DefinedUnitList[] = [];
 	private blockContextStack: VTNode[] = [];
 	private contextStack: Context[] = [];
-	private refVars: RefVar[] = [];
 	private functions: FunctionDeclaration[] = [];
 	private functionGvVal = 0;
 	private functionExecCaId: number;
@@ -89,6 +83,7 @@ class Compiler {
 	public gen: VTSGenerator;
 
 	public errors: CompilerError[] = [];
+	public warnings: string[] = [];
 	private opts: CompilerOptions = {
 		stackSize: 16,
 		generateExceptionObjectives: true
@@ -319,8 +314,64 @@ class Compiler {
 		}
 
 		this.finalizeFunctionGvExec();
+		this.validateReferencedIds();
 
 		return this.vts;
+	}
+
+	private validateReferencedIds() {
+		const collectIds = (parent: string, node: string, idProp: string): number[] => {
+			const ids = this.vts
+				.getNode(parent)
+				.getChildrenWithName(node)
+				.map(n => n.getValue<string, number>(idProp));
+			return ids;
+		};
+
+		const refLookupData: { parent: string; node: string; idProp: string; name: string; type: string }[] = [
+			{ parent: "UNITS", node: "UnitSpawner", idProp: "unitInstanceID", name: "unit", type: "Unit" },
+			{ parent: "TRIGGER_EVENTS", node: "TriggerEvent", idProp: "id", name: "trigger event", type: "Trigger_Events" },
+			{ parent: "StaticObjects", node: "StaticObject", idProp: "id", name: "static object", type: "Static_Object" },
+			{ parent: "BASES", node: "BaseInfo", idProp: "id", name: "base", type: "Base" },
+			{ parent: "EventSequences", node: "SEQUENCE", idProp: "id", name: "sequence", type: "Event_Sequences" }
+		];
+		const gvIds = this.vts
+			.getNode("GlobalValues")
+			.getChildrenWithName("gv")
+			.map(gv => gv.getValue("data")[0]) as number[];
+
+		const vtsIds: Record<string, number[]> = {};
+		refLookupData.forEach(data => {
+			vtsIds[data.type] = collectIds(data.parent, data.node, data.idProp);
+		});
+
+		this.defines.forEach(def => {
+			const classType = classTypeMap[def.type];
+			if (!classType) throw new Error(`Class type "${def.type}" not found`);
+			const lookupData = refLookupData.find(d => d.type == classType);
+			if (!lookupData) return;
+			const ids = vtsIds[lookupData.type];
+			const missingIds = def.ids.filter(id => !ids.includes(id));
+			missingIds.forEach(id => {
+				this.warnings.push(`Define "${def.name}" references ${lookupData.name} "${id}" which is not found in VTS`);
+			});
+		});
+
+		this.externalDeclares.forEach(decl => {
+			switch (decl.type) {
+				case "gv":
+					if (!gvIds.includes(decl.id)) this.warnings.push(`Declared GV "${decl.name}" references GV "${decl.id}" which is not found in VTS`);
+					break;
+
+				case "sequence":
+					if (!vtsIds["Event_Sequences"].includes(decl.id))
+						this.warnings.push(`Declared sequence "${decl.name}" references sequence "${decl.id}" which is not found in VTS`);
+					break;
+
+				default:
+					throw new Error(`Unhandled declare type: ${decl.type}`);
+			}
+		});
 	}
 
 	private compileAst(ast: AST.AnyAST) {
@@ -433,6 +484,7 @@ class Compiler {
 
 				if (typeof gvId != "number") throw new Error("GV declaration requires a number or valid name as the external id");
 				this.context.addGV(ast.name.value, gvId);
+				this.externalDeclares.push({ name: ast.name.value, type: "gv", id: gvId });
 				break;
 			case "Sequence":
 				let seqId = ast.params[0].value;
@@ -442,11 +494,11 @@ class Compiler {
 					if (!refedSeq) throw new Error(`Sequence "${seqId}" not found`);
 					seqId = refedSeq.getValue("id");
 				}
-				if (typeof ast.params[0].value != "number") throw new Error("Sequence declaration requires a number as the external id");
+				if (typeof seqId != "number") throw new Error("Sequence declaration requires a number as the external id");
 
 				while (this.functions.some(fn => fn.gvValue == this.functionGvVal)) this.functionGvVal++;
 				const decl: FunctionDeclaration = {
-					id: ast.params[0].value as number,
+					id: seqId as number,
 					context: new Context(this.context, this.nextId.bind(this), ""),
 					name: ast.name.value,
 					params: [],
@@ -455,6 +507,7 @@ class Compiler {
 				};
 
 				this.functions.push(decl);
+				this.externalDeclares.push({ name: ast.name.value, type: "sequence", id: seqId });
 
 				break;
 			default:

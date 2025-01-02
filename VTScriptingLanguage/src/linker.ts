@@ -37,6 +37,8 @@ const defaultLinkerOpts: LinkerOpts = {
 
 class Linker {
 	public analyzer: Analyzer;
+	public compiler: Compiler;
+
 	public parserErrors: ParserError[] = [];
 	public compilerErrors: CompilerError[] = [];
 
@@ -69,15 +71,15 @@ class Linker {
 
 		if (opts.onlyAnalyze) return;
 
-		const compiler = new Compiler(ast, orgVts, opts);
-		const compiledVts = compiler.compile();
+		this.compiler = new Compiler(ast, orgVts, opts);
+		const compiledVts = this.compiler.compile();
 		if (opts.includeStripInfo) encodeCompilerOwnedInformation(orgVts, compiledVts);
-		this.compilerErrors = compiler.errors;
+		this.compilerErrors = this.compiler.errors;
 		this.debug("output.vts", () => writeVtsFile(compiledVts));
 
 		if (this.hasErrors || opts.skipIR) return { compiledVts, irCompiledVts: null };
 
-		const irGenerator = new IRGenerator(compiledVts, compiler.gen.nodeInfos);
+		const irGenerator = new IRGenerator(compiledVts, this.compiler.gen.nodeInfos);
 		const ir = irGenerator.generateIR();
 		this.debug("ir.json", () => JSON.stringify(ir, null, 2));
 		this.debug("ir.txt", () => IRGenerator.debug(ir));
