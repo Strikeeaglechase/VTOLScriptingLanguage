@@ -53,6 +53,13 @@ interface FunctionDeclaration {
 	type: "sequence" | "conditionalAction";
 }
 
+interface BuiltInFunction {
+	name: string;
+	args: { name: string; type: string }[];
+	returnType: string;
+	handler: (ast: AST.FunctionCall) => void;
+}
+
 interface CompilerError {
 	message: string;
 	node: AST.AnyAST;
@@ -76,6 +83,7 @@ class Compiler {
 	private functionGvVal = 0;
 	private functionExecCaId: number;
 	private functionExecCa: VTNode<ConditionalActionKeys>;
+	private builtinFunctions: BuiltInFunction[] = [];
 
 	private pushActionId = 0;
 	private popActionId = 0;
@@ -126,6 +134,35 @@ class Compiler {
 		return this._nextId++;
 	}
 
+	public static getBuiltInFunctions(attach?: Compiler) {
+		const builtinFunctions: BuiltInFunction[] = [];
+
+		builtinFunctions.push({
+			name: "print",
+			args: [{ name: "message", type: "string" }],
+			returnType: "void",
+			handler: attach ? attach.handlePrintFunctionCall.bind(attach) : null
+		});
+
+		builtinFunctions.push({
+			name: "rand",
+			args: [{ name: "chance", type: "number" }],
+			returnType: "bool",
+			handler: attach ? attach.handleRandFunctionCall.bind(attach) : null
+		});
+
+		gameTypes.condClasses.forEach(condClass => {
+			builtinFunctions.push({
+				name: condClass.name,
+				args: condClass.felids,
+				returnType: "bool",
+				handler: attach ? attach.handleSccCondFunctionCall.bind(attach) : null
+			});
+		});
+
+		return builtinFunctions;
+	}
+
 	constructor(private ast: AST.Program, orgVts: VTNode, uOpts: Partial<CompilerOptions>) {
 		this.opts = { ...this.opts, ...uOpts };
 		this.vts = orgVts.clone();
@@ -133,6 +170,8 @@ class Compiler {
 
 		const context = new Context(null, this.nextId.bind(this), "");
 		this.contextStack.push(context);
+
+		this.builtinFunctions = Compiler.getBuiltInFunctions(this);
 	}
 
 	private createStack() {
@@ -738,7 +777,7 @@ class Compiler {
 		const isMinusTwo = this.gen.gvComp(this.vn(vars.result), -2, "Equals");
 
 		const unitComps: number[] = unitList.ids.map(id => {
-			const comp = this.gen.unitComp(method, id, false, params);
+			const comp = this.gen.unitComp(unitList.type, method, id, false, params);
 			conds.push(comp);
 			return comp.getValue("id");
 		});
@@ -839,7 +878,7 @@ class Compiler {
 				this.add(
 					this.gen.simpleConditional(
 						`single_${ast.method.value}`,
-						this.gen.unitComp(ast.method.value, unitList.ids[0], false, params),
+						this.gen.unitComp(unitList.type, ast.method.value, unitList.ids[0], false, params),
 						ifTrueAction,
 						ifFalseAction
 					)
@@ -917,9 +956,11 @@ class Compiler {
 	}
 
 	private handleFunctionCall(ast: AST.FunctionCall) {
-		// Probably better as a proper "builtinFunction" system, but don't want to deal with having to publicize a bunch of stuff
-		if (ast.target.value == "print") return this.handlePrintFunctionCall(ast);
-		if (ast.target.value == "rand") return this.handleRandFunctionCall(ast);
+		const builtIn = this.builtinFunctions.find(f => f.name == ast.target.value);
+		if (builtIn) {
+			builtIn.handler(ast);
+			return;
+		}
 
 		const fn = this.functions.find(f => f.name == ast.target.value);
 		if (!fn) {
@@ -963,6 +1004,21 @@ class Compiler {
 		if (typeof message.value != "string") throw new Error("print() only supports string literals, got " + typeof message.value);
 
 		this.add(this.gen.displayMessage(message.value));
+	}
+
+	private handleSccCondFunctionCall(ast: AST.FunctionCall) {
+		const klassInfo = gameTypes.condClasses.find(c => c.name == ast.target.value);
+		if (!klassInfo) throw new Error(`Class "${ast.target.value}" not found in condition classes`);
+
+		const params = ast.arguments.map((arg, idx) => convertAstToParamInfo(this.context, arg, klassInfo.felids[idx]));
+		const ifTrueAction = this.gen.gvSet(this.vn(vars.result), 1);
+		const ifFalseAction = this.gen.gvSet(this.vn(vars.result), 0);
+		const cond = this.gen.sccCond(
+			ast.target.value,
+			params.map(p => p.value)
+		);
+
+		this.add(this.gen.simpleConditional("sccCond", cond, ifTrueAction, ifFalseAction));
 	}
 
 	private handleUnitDefine(ast: AST.UnitDefine) {

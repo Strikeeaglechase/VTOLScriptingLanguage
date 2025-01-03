@@ -1,7 +1,13 @@
 define test: VTSequencedEvent = 0;
 define gvs: ScenarioGlobalValueActions = 2;
 
-test.BeginEvent();
+// test.BeginEvent();
 let a = 1;
 let b = 2;
-gvs.CopyValue(a, b);
+
+if (SCCGlobalValueCompare(a, b, IntComparisons2.Equals)) {
+	print("They are the same!");
+}
+
+fn test2() {
+}

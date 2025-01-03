@@ -1,5 +1,5 @@
 import fs from "fs";
-import { EnumInfo, Method, ClassInfo } from "./compiler/gameTypes.js";
+import { EnumInfo, Method, ClassInfo, CondClassInfo } from "./compiler/gameTypes.js";
 const source = fs.readFileSync("../../GameSource.cs", "utf-8").replaceAll("\r", ""); //.split("\r\n").join("\n");
 
 function processMethod(match: RegExpMatchArray): Method {
@@ -31,6 +31,7 @@ function countInstances(str: string, char: string) {
 
 function extractClasses() {
 	const classInfos: ClassInfo[] = [];
+	const condClassInfos: CondClassInfo[] = [];
 
 	function resolveInheritanceChain(klass: string): string {
 		const inheres = classes
@@ -51,9 +52,9 @@ function extractClasses() {
 		const rawMethods = [...klass.body.matchAll(/(\[(?:VTEvent|SCCUnitProperty)\(.+\)\]\s*)?public (\w+) ([\w\d]+)\(((?:(?:\[.+\])?[\w\d ,])*)\)/g)];
 		const methods = rawMethods.map(c => processMethod(c));
 
-		const info: ClassInfo = { name: klass.name, methods };
-
 		const inheritanceChain = resolveInheritanceChain(klass.name).split(" <- ").slice(1, -1);
+		const info: ClassInfo = { name: klass.name, methods, inheritanceChain };
+
 		inheritanceChain.forEach(parentClass => {
 			const parentInfo = processClass(parentClass);
 			parentInfo.methods.forEach(m => {
@@ -66,13 +67,23 @@ function extractClasses() {
 		return info;
 	}
 
+	function processCondClass({ name, body }: { name: string; body: string }) {
+		// const name = classBody.match(/(?:public|private) class ([\w\d]+)/)[1];
+		const felids = [...body.matchAll(/\[SCCField\]\s*(?:public|private) ([\w\d]+) ([\w\d]+)/g)].map(f => ({ type: f[1], name: f[2] }));
+		condClassInfos.push({ name, felids });
+	}
+
 	function extractRawClasses() {
 		const lines = source.split("\n");
-		// const resolvedClasses: { depth: number; content: string; resolvedLines: string[] }[] = [];
-		const classHeaders = [...source.matchAll(/public class [\w\d]+/g)].map(c => c[0]);
+		const classHeaderLines = lines
+			.map((l, idx) => ({ l, idx }))
+			.filter(l => {
+				return l.l.match(/public class [\w\d]+/);
+			});
 		const classes: string[] = [];
-		classHeaders.forEach(c => {
-			const startLine = lines.findIndex(l => l.includes(c));
+
+		classHeaderLines.forEach(c => {
+			const startLine = c.idx;
 			let curDepth = 0;
 			let currentLine = startLine + 1;
 			const resolvedLines: string[] = [];
@@ -98,12 +109,15 @@ function extractClasses() {
 		const body = c.split("\n").slice(1).join("\n");
 		return { name, inheres, body };
 	});
-	const condClasses = classes.filter(c => c.body.includes("[SCCUnitProperty") || c.body.includes("[VTEvent"));
-	console.log(`Found ${condClasses.length} classes with SCCUnitProperty`);
+	const eventTargetClasses = classes.filter(c => c.body.includes("[SCCUnitProperty") || c.body.includes("[VTEvent"));
+	// console.log(`Found ${eventTargetClasses.length} classes with SCCUnitProperty`);
 
-	condClasses.forEach(c => processClass(c.name));
+	const condClasses = classes.filter(c => resolveInheritanceChain(c.name).split(" <- ").includes("ScenarioConditionalComponent"));
 
-	return classInfos;
+	eventTargetClasses.forEach(c => processClass(c.name));
+	condClasses.forEach(c => processCondClass(c));
+
+	return { classInfos, condClassInfos };
 }
 
 function extractEnums() {
@@ -121,33 +135,40 @@ function extractEnums() {
 	return enums;
 }
 
-const classInfos = extractClasses();
+const { classInfos, condClassInfos } = extractClasses();
 const enumsInfos = extractEnums();
+// const e = enumsInfos.find(e => e.name == "ControlConditions");
+// console.log({ e });
 const relevantEnumInfos: EnumInfo[] = [];
 
-const argTypes: Set<string> = new Set();
+// const argTypes: Set<string> = new Set();
 const sOfficialArgTypes: Set<string> = new Set();
 classInfos.forEach(c => {
 	c.methods.forEach(methodInfo => {
 		// if (methodInfo.decorator) console.log(methodInfo.decorator);
 		methodInfo.args.forEach(arg => {
-			argTypes.add(arg.type);
+			// argTypes.add(arg.type);
 			if (methodInfo.decorator) sOfficialArgTypes.add(arg.type);
 		});
 	});
 });
 
-const officialArgTypes = [...sOfficialArgTypes];
-officialArgTypes.forEach(t => {
-	const enumInfo = enumsInfos.find(e => e.name === t);
-	if (enumInfo) {
-		relevantEnumInfos.push(enumInfo);
-		// console.log(`Enum ${t}: ${enumInfo.values.map(v => `${v.key} = ${v.value}`).join(", ")}`);
-	}
+condClassInfos.forEach(c => {
+	c.felids.forEach(f => {
+		// argTypes.add(f.type);
+		sOfficialArgTypes.add(f.type);
+	});
 });
 
-console.log(classInfos.map(e => e.name));
+// const officialArgTypes = [...sOfficialArgTypes];
+sOfficialArgTypes.forEach(t => {
+	const enumInfo = enumsInfos.find(e => e.name === t);
+	if (enumInfo) relevantEnumInfos.push(enumInfo);
+});
+
+// console.log(classInfos.map(e => e.name));
 
 // Argument types: int, Actor,  UnitSpawner, ConfigNode, GameObject Vector3D, PhoneticLetters, string
 // Official argument types: CardinalDirections, FollowPath, InOrOut, bool, UnitReferenceListOtherSubs, Teams, UnitReferenceList, PlayerCommandsModes, FormationDistances, Waypoint, float, FlightStartModes, TargetingMethods, SCCPlayerSensors, FixedPoint
-fs.writeFileSync("../../classInfo.json", JSON.stringify({ classes: classInfos, enums: relevantEnumInfos }, null, 2));
+console.log(`Writing ${classInfos.length} classes, ${relevantEnumInfos.length} enums, and ${condClassInfos.length} cond classes to classInfo.json`);
+fs.writeFileSync("../../classInfo.json", JSON.stringify({ classes: classInfos, enums: relevantEnumInfos, condClasses: condClassInfos }, null, 2));

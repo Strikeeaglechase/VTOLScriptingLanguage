@@ -1,3 +1,4 @@
+import { Compiler } from "./compiler/compiler.js";
 import { loadGameTypes } from "./compiler/gameTypes.js";
 import { AST, getLastPos } from "./parser/ast.js";
 import { Token, TokenType } from "./parser/tokenizer.js";
@@ -287,6 +288,15 @@ class Analyzer {
 		vars.forEach(v => result.push({ name: v, type: "variable" }));
 		defs.forEach(d => result.push({ name: d.name, type: "define", defType: d.type }));
 
+		this.functions.forEach(f => {
+			result.push({ name: f.name.value, type: "function", args: f.parameters.map(p => ({ name: p.value, type: "GV" })), returnType: "", intended: true });
+		});
+
+		const builtIns = Compiler.getBuiltInFunctions(null);
+		builtIns.forEach(b => {
+			result.push({ name: b.name, type: "function", args: b.args, returnType: b.returnType, intended: true });
+		});
+
 		return result;
 	}
 
@@ -309,6 +319,7 @@ class Analyzer {
 		});
 		const contexts = [this.contexts[0], ...contextRange.map(ctx => ctx.context)];
 		const matchingAst = this.getTokenAst(token);
+		if (!matchingAst) return null;
 		switch (matchingAst.type) {
 			case AST.Type.UnitDefine:
 				if (matchingAst.name == token) return `${matchingAst.name.value}: ${matchingAst.unitType.value}`;

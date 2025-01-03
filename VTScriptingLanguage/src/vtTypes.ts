@@ -14,6 +14,8 @@ export type CompKeys =
 	| "c_value"
 	| "factors"
 	| "unit"
+	| "unitGroup"
+	| "objectReference"
 	| "methodName"
 	| "methodParameters"
 	| "isNot"

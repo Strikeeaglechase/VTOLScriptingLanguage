@@ -33,12 +33,21 @@ const enumTypes: { methodType: string; gameType?: string }[] = [
 	{ methodType: "MoveSpeeds", gameType: "GroundUnitSpawn+MoveSpeeds" },
 	{ methodType: "CardinalDirections" },
 	{ methodType: "Teams" },
+	{ methodType: "IntComparisons2" },
+	{ methodType: "IntComparisons" },
+	{ methodType: "FloatComparisons" },
+	{ methodType: "HealthComparisons", gameType: "AIUnitSpawn+HealthComparisons" },
 	{ methodType: "InOrOut", gameType: "UnitSpawn+InOrOut" },
 	{ methodType: "PlayerCommandsModes", gameType: "AIAircraftSpawn+PlayerCommandModes" },
 	{ methodType: "FormationDistances", gameType: "AIAircraftSpawn+FormationDistances" },
+	{ methodType: "EMBandOptions", gameType: "AIGroundECMSpawn+EMBandOptions" },
 	{ methodType: "FlightStartModes", gameType: "PlayerSpawn+FlightStartModes" },
 	{ methodType: "TargetingMethods", gameType: "PlayerSpawn+TargetingMethods" },
-	{ methodType: "SCCPlayerSensors", gameType: "PlayerSpawn+SCCPlayerSensors" }
+	{ methodType: "SCCPlayerSensors", gameType: "PlayerSpawn+SCCPlayerSensors" },
+	{ methodType: "MPUITeams" },
+	{ methodType: "MFDTypes" },
+	{ methodType: "StatTypes", gameType: "SCCMPTeamStats.StatTypes" },
+	{ methodType: "ControlConditions", gameType: "SCCVehicleControl.ControlConditions" }
 ];
 // Official argument types: CardinalDirections, FollowPath, InOrOut, bool, UnitReferenceListOtherSubs, Teams, UnitReferenceList, PlayerCommandsModes, FormationDistances, Waypoint, float, FlightStartModes, TargetingMethods, SCCPlayerSensors, FixedPoint
 // Unimplemented: FollowPath, UnitReferenceListOtherSubs, UnitReferenceList, Waypoint

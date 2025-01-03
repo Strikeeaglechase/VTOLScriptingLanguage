@@ -12,7 +12,7 @@ import {
 	SequenceKeys
 } from "../vtTypes.js";
 import { varIds } from "./compiler.js";
-import { classTypeMap } from "./gameTypes.js";
+import { classToSCCCondMap, classTypeMap, loadGameTypes } from "./gameTypes.js";
 
 interface NodeInfo {
 	methodName: string;
@@ -549,11 +549,11 @@ class VTSGenerator {
 	}
 
 	@Track
-	public unitMethod(klass: string, method: string, unitId: number, params: { name: string; type: string; value: VTValue }[]) {
+	public unitMethod(klass: string, method: string, targetId: number, params: { name: string; type: string; value: VTValue }[]) {
 		if (!(klass in classTypeMap)) throw new Error(`Class "${klass}" is not defined`);
 		const eventTarget = new VTNode<EventTargetKeys | "altTargetIdx">("EventTarget");
 		eventTarget.setValue("targetType", classTypeMap[klass]);
-		eventTarget.setValue("targetID", unitId);
+		eventTarget.setValue("targetID", targetId);
 		eventTarget.setValue("eventName", method);
 		eventTarget.setValue("methodName", method);
 		eventTarget.setValue("altTargetIdx", -2);
@@ -570,12 +570,18 @@ class VTSGenerator {
 	}
 
 	@Track
-	public unitComp(method: string, unitId: number, negated: boolean, params: VTValue[]) {
+	public unitComp(klass: string, method: string, target: number | string, negated: boolean, params: VTValue[]) {
+		if (!(klass in classTypeMap)) throw new Error(`Class "${klass}" is not defined`);
+		const targetType = classTypeMap[klass];
+		const validTargetTypes = Object.keys(classToSCCCondMap);
+		if (!(targetType in classToSCCCondMap))
+			throw new Error(`Class "${klass}" is not a valid conditional method target type. Valid types are: ${validTargetTypes.join(", ")}`);
+
 		const comp = new VTNode<CompKeys>("COMP");
 		comp.setValue("id", this.nextId());
-		comp.setValue("type", "SCCUnit");
+		comp.setValue("type", classToSCCCondMap[targetType].type);
 		comp.setValue("uiPos", { x: 0, y: 0, z: 0 });
-		comp.setValue("unit", unitId);
+		comp.setValue(classToSCCCondMap[targetType].key, target);
 		comp.setValue("methodName", method);
 		comp.setValue("methodParameters", null);
 		comp.setValue("isNot", negated);
@@ -584,6 +590,23 @@ class VTSGenerator {
 			const methodParam = new VTNode("methodParameters");
 			methodParam.setValue("value", param);
 			comp.addChild(methodParam);
+		});
+
+		return comp;
+	}
+
+	@Track
+	public sccCond(klass: string, params: VTValue[]) {
+		const classInfo = loadGameTypes().condClasses.find(c => c.name == klass);
+		if (!classInfo) throw new Error(`Class "${klass}" is not defined`);
+
+		const comp = new VTNode<CompKeys>("COMP");
+		comp.setValue("id", this.nextId());
+		comp.setValue("type", klass);
+		comp.setValue("uiPos", { x: 0, y: 0, z: 0 });
+		params.forEach((param, idx) => {
+			const key = classInfo.felids[idx].name;
+			comp.setValue(key as CompKeys, param);
 		});
 
 		return comp;

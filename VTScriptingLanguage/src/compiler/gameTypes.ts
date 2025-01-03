@@ -1,4 +1,5 @@
 import fs from "fs";
+import { CompKeys } from "../vtTypes.js";
 
 export interface Method {
 	name: string;
@@ -9,7 +10,13 @@ export interface Method {
 
 export interface ClassInfo {
 	name: string;
+	inheritanceChain: string[];
 	methods: Method[];
+}
+
+export interface CondClassInfo {
+	name: string;
+	felids: { name: string; type: string }[];
 }
 
 export interface EnumInfo {
@@ -74,6 +81,12 @@ export const classTypeMap = {
 	SeaGroupActions: "UnitGroup",
 	AirGroupActions: "UnitGroup",
 	GroundGroupActions: "UnitGroup"
+};
+
+export const classToSCCCondMap: Record<string, { key: CompKeys; type: string }> = {
+	Unit: { key: "unit", type: "SCCUnit" },
+	UnitGroup: { key: "unitGroup", type: "SCCUnitGroup" },
+	Static_Object: { key: "objectReference", type: "SCCStaticObject" }
 };
 
 /*
@@ -148,7 +161,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "AIUnitSpawn",
@@ -487,7 +501,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["UnitSpawn"]
 		},
 		{
 			name: "AIUnitSpawnEquippable",
@@ -832,7 +847,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "AIAircraftSpawn",
@@ -1650,7 +1666,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["AIUnitSpawnEquippable", "AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "AISeaUnitSpawn",
@@ -2029,7 +2046,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["AIUnitSpawnEquippable", "AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "AICarrierSpawn",
@@ -2542,7 +2560,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["AISeaUnitSpawn", "AIUnitSpawnEquippable", "AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "AIDroneCarrierSpawn",
@@ -2927,7 +2946,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["AISeaUnitSpawn", "AIUnitSpawnEquippable", "AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "GroundUnitSpawn",
@@ -3368,7 +3388,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["AIUnitSpawnEquippable", "AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "AIFixedSAMSpawn",
@@ -3843,7 +3864,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["GroundUnitSpawn", "AIUnitSpawnEquippable", "AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "AIGroundECMSpawn",
@@ -4335,7 +4357,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["GroundUnitSpawn", "AIUnitSpawnEquippable", "AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "AIJTACSpawn",
@@ -4858,7 +4881,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["GroundUnitSpawn", "AIUnitSpawnEquippable", "AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "AIMissileSilo",
@@ -5277,7 +5301,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "AITestUnitSpawn",
@@ -5622,7 +5647,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "APCUnitSpawn",
@@ -6108,7 +6134,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["GroundUnitSpawn", "AIUnitSpawnEquippable", "AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "ArtilleryUnitSpawn",
@@ -6631,7 +6658,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["GroundUnitSpawn", "AIUnitSpawnEquippable", "AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "IFVSpawn",
@@ -7128,7 +7156,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["APCUnitSpawn", "GroundUnitSpawn", "AIUnitSpawnEquippable", "AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "J4MothershipSpawn",
@@ -7494,7 +7523,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "MultiplayerSpawn",
@@ -7879,7 +7909,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["UnitSpawn"]
 		},
 		{
 			name: "PlayerSpawn",
@@ -8265,7 +8296,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["UnitSpawn"]
 		},
 		{
 			name: "RearmingUnitSpawn",
@@ -8334,7 +8366,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["UnitSpawn"]
 		},
 		{
 			name: "RocketArtilleryUnitSpawn",
@@ -8901,7 +8934,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: ["ArtilleryUnitSpawn", "GroundUnitSpawn", "AIUnitSpawnEquippable", "AIUnitSpawn", "UnitSpawn"]
 		},
 		{
 			name: "SCCUnitList",
@@ -9055,7 +9089,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "TriggerEvent",
@@ -9084,7 +9119,8 @@ const types = {
 					returnType: "void",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "VTMapEdPrefab",
@@ -9117,7 +9153,8 @@ const types = {
 					returnType: "Bounds",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "VTMapEdStructurePrefab",
@@ -9150,7 +9187,8 @@ const types = {
 					returnType: "Bounds",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: ["VTMapEdPrefab"]
 		},
 		{
 			name: "VTMapEdScenarioBasePrefab",
@@ -9212,7 +9250,8 @@ const types = {
 					returnType: "Bounds",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: ["VTMapEdStructurePrefab", "VTMapEdPrefab"]
 		},
 		{
 			name: "VTObjective",
@@ -9292,7 +9331,8 @@ const types = {
 					returnType: "void",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "ScenarioSystemActions",
@@ -9723,7 +9763,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "ScenarioTutorialActions",
@@ -9872,7 +9913,8 @@ const types = {
 					returnType: "bool",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "ScenarioGlobalValueActions",
@@ -10008,7 +10050,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "ScenarioGlobalUnitActions",
@@ -10050,7 +10093,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "VTSequencedEvent",
@@ -10124,7 +10168,8 @@ const types = {
 						}
 					]
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "VTStaticObject",
@@ -10175,7 +10220,8 @@ const types = {
 					returnType: "ConfigNode",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "VTSODestructible",
@@ -10238,7 +10284,8 @@ const types = {
 					returnType: "ConfigNode",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: ["VTStaticObject"]
 		},
 		{
 			name: "VTSOTutorial",
@@ -10300,7 +10347,8 @@ const types = {
 					returnType: "ConfigNode",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: ["VTStaticObject"]
 		},
 		{
 			name: "VTTimedEventGroup",
@@ -10374,7 +10422,8 @@ const types = {
 					returnType: "bool",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "UnitGroupActions",
@@ -10508,7 +10557,8 @@ const types = {
 					returnType: "bool",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: []
 		},
 		{
 			name: "UnitGroupActionsTargetPrefs",
@@ -10720,7 +10770,8 @@ const types = {
 					returnType: "bool",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: ["UnitGroupActions"]
 		},
 		{
 			name: "SeaGroupActions",
@@ -10965,7 +11016,8 @@ const types = {
 					returnType: "bool",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: ["UnitGroupActionsTargetPrefs", "UnitGroupActions"]
 		},
 		{
 			name: "AirGroupActions",
@@ -11451,7 +11503,8 @@ const types = {
 					returnType: "bool",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: ["UnitGroupActions"]
 		},
 		{
 			name: "GroundGroupActions",
@@ -11713,7 +11766,8 @@ const types = {
 					returnType: "bool",
 					args: []
 				}
-			]
+			],
+			inheritanceChain: ["UnitGroupActionsTargetPrefs", "UnitGroupActions"]
 		}
 	],
 	enums: [
@@ -11955,6 +12009,253 @@ const types = {
 					value: "1"
 				}
 			]
+		},
+		{
+			name: "IntComparisons2",
+			values: [
+				{
+					key: "Equals",
+					value: "0"
+				},
+				{
+					key: "NotEquals",
+					value: "1"
+				},
+				{
+					key: "Greater",
+					value: "2"
+				},
+				{
+					key: "Greater_Or_Equal",
+					value: "3"
+				},
+				{
+					key: "Less",
+					value: "4"
+				},
+				{
+					key: "Less_Or_Equal",
+					value: "5"
+				}
+			]
+		},
+		{
+			name: "StatTypes",
+			values: [
+				{
+					key: "Kills",
+					value: "0"
+				},
+				{
+					key: "Deaths",
+					value: "1"
+				},
+				{
+					key: "Score",
+					value: "2"
+				},
+				{
+					key: "Lives_Left",
+					value: "3"
+				},
+				{
+					key: "Team_Budget",
+					value: "4"
+				}
+			]
+		},
+		{
+			name: "ControlConditions",
+			values: [
+				{
+					key: "Interacted",
+					value: "0"
+				},
+				{
+					key: "EqualTo",
+					value: "1"
+				},
+				{
+					key: "GreaterThan",
+					value: "2"
+				},
+				{
+					key: "LessThan",
+					value: "3"
+				}
+			]
+		}
+	],
+	condClasses: [
+		{
+			name: "SCCAnd",
+			felids: []
+		},
+		{
+			name: "SCCChance",
+			felids: [
+				{
+					type: "int",
+					name: "chance"
+				}
+			]
+		},
+		{
+			name: "SCCGlobalValue",
+			felids: [
+				{
+					type: "GlobalValue",
+					name: "gv"
+				},
+				{
+					type: "IntComparisons",
+					name: "comparison"
+				},
+				{
+					type: "int",
+					name: "c_value"
+				}
+			]
+		},
+		{
+			name: "SCCGlobalValueCompare",
+			felids: [
+				{
+					type: "GlobalValue",
+					name: "gvA"
+				},
+				{
+					type: "GlobalValue",
+					name: "gvB"
+				},
+				{
+					type: "IntComparisons2",
+					name: "comparison"
+				}
+			]
+		},
+		{
+			name: "SCCMPTeamStats",
+			felids: [
+				{
+					type: "Teams",
+					name: "team"
+				},
+				{
+					type: "StatTypes",
+					name: "statType"
+				},
+				{
+					type: "IntComparisons",
+					name: "comparison"
+				},
+				{
+					type: "int",
+					name: "count"
+				}
+			]
+		},
+		{
+			name: "SCCOr",
+			felids: []
+		},
+		{
+			name: "SCCStaticObject",
+			felids: [
+				{
+					type: "StaticObjectReference",
+					name: "objectReference"
+				},
+				{
+					type: "string",
+					name: "methodName"
+				},
+				{
+					type: "bool",
+					name: "isNot"
+				}
+			]
+		},
+		{
+			name: "SCCUnit",
+			felids: [
+				{
+					type: "UnitReference",
+					name: "unit"
+				},
+				{
+					type: "string",
+					name: "methodName"
+				},
+				{
+					type: "bool",
+					name: "isNot"
+				}
+			]
+		},
+		{
+			name: "SCCUnitAlive",
+			felids: [
+				{
+					type: "UnitReference",
+					name: "unitRef"
+				}
+			]
+		},
+		{
+			name: "SCCUnitGroup",
+			felids: [
+				{
+					type: "string",
+					name: "methodName"
+				},
+				{
+					type: "bool",
+					name: "isNot"
+				}
+			]
+		},
+		{
+			name: "SCCUnitList",
+			felids: [
+				{
+					type: "UnitReferenceList",
+					name: "unitList"
+				},
+				{
+					type: "string",
+					name: "methodName"
+				},
+				{
+					type: "bool",
+					name: "isNot"
+				}
+			]
+		},
+		{
+			name: "SCCVehicleControl",
+			felids: [
+				{
+					type: "VehicleControlReference",
+					name: "vehicleControl"
+				},
+				{
+					type: "ControlConditions",
+					name: "controlCondition"
+				},
+				{
+					type: "float",
+					name: "controlValue"
+				},
+				{
+					type: "bool",
+					name: "isNot"
+				}
+			]
+		},
+		{
+			name: "ScenarioConditionalComponent",
+			felids: []
 		}
 	]
 };
