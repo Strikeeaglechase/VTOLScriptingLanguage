@@ -1,3 +1,4 @@
+define scenarioSystemActions: ScenarioSystemActions = 0;
 define test: VTSequencedEvent = 0;
 define gvs: ScenarioGlobalValueActions = 2;
 
@@ -7,7 +8,4 @@ let b = 2;
 
 if (SCCGlobalValueCompare(a, b, IntComparisons2.Equals)) {
 	print("They are the same!");
-}
-
-fn test2() {
 }

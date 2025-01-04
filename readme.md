@@ -124,17 +124,31 @@ let result2 = x(1, 2); // result2 = -1
 
 ## Built in Functions
 
-There are currently two built in functions
-
-`print("message")` will create a display message popup, useful for debugging
-
-`rand(num)` returns true, where `num` is a number 0-100 being the % chance
+Most built in functions exist to enable comparisons not typically accessible
 
 ```rust
-if (rand(50)) print("Hello world");
+print(message: string): void
+rand(chance: number): bool
+SCCChance(chance: int): bool
+SCCGlobalValue(gv: GlobalValue, comparison: IntComparisons, c_value: int): bool
+SCCGlobalValueCompare(gvA: GlobalValue, gvB: GlobalValue, comparison: IntComparisons2): bool
+SCCMPTeamStats(team: Teams, statType: StatTypes, comparison: IntComparisons, count: int): bool
+SCCStaticObject(objectReference: StaticObjectReference, methodName: string, isNot: bool): bool
+SCCUnit(unit: UnitReference, methodName: string, isNot: bool): bool
+SCCUnitAlive(unitRef: UnitReference): bool
+SCCUnitGroup(methodName: string, isNot: bool): bool
+SCCUnitList(unitList: UnitReferenceList, methodName: string, isNot: bool): bool
+SCCVehicleControl(vehicleControl: VehicleControlReference, controlCondition: ControlConditions, controlValue: float, isNot: bool): bool
 ```
 
-The above would have a 50% chance of printing "Hello world"
+Additionally, while not built in the `System` event actions are accessible via the following:
+
+```rust
+define systemActions: ScenarioSystemActions = 0;
+define tutorialActions: ScenarioTutorialActions = 1;
+define globalValueActions: ScenarioGlobalValueActions = 2;
+define globalUnitActions: ScenarioGlobalUnitActions = 3;
+```
 
 ## Units
 

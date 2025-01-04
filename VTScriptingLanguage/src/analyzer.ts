@@ -352,6 +352,9 @@ class Analyzer {
 			// 	if (matchingAst.target == token) return SemanticTokenTypes.class;
 			// 	throw new Error("Unknown identifier in PropertyAccess");
 			case AST.Type.FunctionCall:
+				const builtInFunctions = Compiler.getBuiltInFunctions(null);
+				const builtIn = builtInFunctions.find(b => b.name == matchingAst.target.value);
+				if (builtIn) return `(function) ${matchingAst.target.value}(${builtIn.args.map(a => `${a.name}: ${a.type}`).join(", ")}): ${builtIn.returnType}`;
 				const declaration = this.functions.find(f => f.name.value == matchingAst.target.value);
 				if (!declaration) return `(function) ${matchingAst.target.value}()`;
 				const callArgs = declaration.parameters.map(p => p.value).join(", ");
@@ -362,6 +365,15 @@ class Analyzer {
 				if (matchingAst.declareType.value == "GV") return `${matchingAst.name.value}: GV`;
 				if (matchingAst.declareType.value == "Sequence") return `(function) ${matchingAst.name.value}()`;
 				return null;
+
+			case AST.Type.PropertyAccess:
+				if (matchingAst.property == token) return null;
+				const enumType = loadGameTypes().enums.find(e => e.name == matchingAst.target.value);
+				if (!enumType) return `(unknown) ${matchingAst.target.value}.${matchingAst.property.value}`;
+				return `enum ${matchingAst.target.value} {\n${enumType.values.map(v => "\t" + v.key).join(",\n")}\n}`;
+
+			default:
+				console.log(`Hover semantics not implemented for ${matchingAst.type}`);
 		}
 	}
 

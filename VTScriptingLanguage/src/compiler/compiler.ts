@@ -172,6 +172,10 @@ class Compiler {
 		this.contextStack.push(context);
 
 		this.builtinFunctions = Compiler.getBuiltInFunctions(this);
+		// this.builtinFunctions.forEach(bf => {
+		// 	console.log(`${bf.name}(${bf.args.map(a => `${a.name}: ${a.type}`).join(", ")}): ${bf.returnType}`);
+		// });
+		// process.exit();
 	}
 
 	private createStack() {
