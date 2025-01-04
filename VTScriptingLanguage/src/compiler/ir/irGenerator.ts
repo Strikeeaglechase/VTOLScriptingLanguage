@@ -213,7 +213,7 @@ class IRGenerator {
 					}
 					const cActRef = ir.conditionalActions.find(ca => ca.id == arg.value);
 					if (cActRef) {
-						return `cact_${cActRef.name}_${cActRef.id}`;
+						return `${cActRef.name}_${cActRef.id}`;
 					}
 					const gvRef = ir.gvs.find(gv => gv.id == arg.value);
 					if (gvRef) {

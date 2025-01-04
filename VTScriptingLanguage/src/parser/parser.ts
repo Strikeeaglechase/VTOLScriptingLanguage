@@ -136,6 +136,7 @@ class Parser {
 			type: AST.Type.VariableAssignment,
 			name: left.name,
 			expression: binOp,
+			indexer: null,
 
 			...correctOrderPos(left, getLastPos(binOp))
 		};
@@ -190,6 +191,8 @@ class Parser {
 				return this.handleFunctionDeclaration();
 			case "let":
 				return this.handleVariableDeclaration();
+			case "arr":
+				return this.handleArrayDeclaration();
 			case "ref":
 				return this.handleUnitReference();
 			case "if":
@@ -265,15 +268,26 @@ class Parser {
 
 	private handleIdentifier() {
 		const identifier = this.tokens.next();
-		const next = this.tokens.peek();
+		let next = this.tokens.peek();
 
+		let indexer: AST.AnyAST = null;
 		if (next.value == "(") return this.handleFunctionCall(identifier);
-		if (next.value == "." || next.value == "[") return this.handlePropertyAccess(identifier);
-		if (next.value == "=") return this.handleVariableAssignment(identifier);
+		if (next.value == "." || next.value == "[") {
+			const propMethodOrIndex = this.handlePropertyAccess(identifier);
+			if (!propMethodOrIndex) return null;
+
+			if (propMethodOrIndex.type == "index") indexer = propMethodOrIndex.result;
+			else return propMethodOrIndex.result;
+		}
+
+		// Re-peak next as consuming the indexer might have consumed the next token
+		next = this.tokens.peek();
+		if (next.value == "=") return this.handleVariableAssignment(identifier, indexer);
 
 		const variableReference: AST.VariableReference = {
 			type: AST.Type.VariableReference,
 			name: identifier,
+			indexer: indexer,
 			line: identifier.line,
 			column: identifier.column,
 			lineEnd: identifier.line,
@@ -283,7 +297,7 @@ class Parser {
 		return variableReference;
 	}
 
-	private handleVariableAssignment(identifier: Token) {
+	private handleVariableAssignment(identifier: Token, indexer: AST.AnyAST) {
 		this.consumeOrThrow("=");
 		const value = this.parseAst();
 
@@ -291,6 +305,7 @@ class Parser {
 			type: AST.Type.VariableAssignment,
 			name: identifier,
 			expression: value,
+			indexer: indexer,
 
 			line: identifier.line,
 			column: identifier.column,
@@ -316,7 +331,7 @@ class Parser {
 		return functionCall;
 	}
 
-	private handlePropertyAccess(identifier: Token) {
+	private handlePropertyAccess(identifier: Token): { type: "index" | "property"; result: AST.AnyAST } {
 		const next = this.tokens.peek();
 		let indexer: AST.AnyAST | null = null;
 		if (next.value == "[") {
@@ -325,7 +340,11 @@ class Parser {
 			this.consumeOrThrow("]");
 		}
 
-		this.consumeOrThrow(".");
+		if (!this.maybeConsume(".")) {
+			if (!indexer) throw new Error(`Expected . or [ at ${next.line}:${next.column}`);
+			return { type: "index", result: indexer };
+		}
+
 		let property = this.tokens.peek();
 		if (property.type != TokenType.Identifier) {
 			// Misstyped property, should error but lets gracefully exit so that we can provide autocomplete
@@ -358,7 +377,7 @@ class Parser {
 				...getLastPosNamed(args, nextTkn)
 			};
 
-			return methodCall;
+			return { type: "property", result: methodCall };
 		}
 
 		const propertyAccess: AST.PropertyAccess = {
@@ -373,7 +392,7 @@ class Parser {
 			...getLastPosNamed(property)
 		};
 
-		return propertyAccess;
+		return { type: "property", result: propertyAccess };
 	}
 
 	private handleLiteralNumber() {
@@ -664,6 +683,26 @@ class Parser {
 		};
 
 		return variableDeclaration;
+	}
+
+	private handleArrayDeclaration() {
+		const arrToken = this.tokens.next();
+		const name = this.tokens.next();
+		this.consumeOrThrow(":");
+		const length = this.tokens.next();
+
+		const arrayDeclaration: AST.ArrayDeclaration = {
+			type: AST.Type.ArrayDeclaration,
+			name: name,
+			length: length,
+
+			line: arrToken.line,
+			column: arrToken.column,
+
+			...getLastPosNamed(length)
+		};
+
+		return arrayDeclaration;
 	}
 
 	private handleUnitReference() {

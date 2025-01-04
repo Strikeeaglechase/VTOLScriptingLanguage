@@ -8,6 +8,7 @@ export namespace AST {
 		UnitDefine = "define",
 		FunctionDeclaration = "fn",
 		VariableDeclaration = "var",
+		ArrayDeclaration = "arr",
 		VariableReference = "varRef",
 		VariableAssignment = "varAssign",
 		UnitReference = "unitRef",
@@ -39,8 +40,12 @@ export namespace AST {
 		[Type.UnitDefine]: (node, visitor) => node.idRanges.forEach(v => visitor(v)),
 		[Type.FunctionDeclaration]: (node, visitor) => node.body.forEach(visitor),
 		[Type.VariableDeclaration]: (node, visitor) => visitor(node.expression),
-		[Type.VariableReference]: () => {},
-		[Type.VariableAssignment]: (node, visitor) => visitor(node.expression),
+		[Type.ArrayDeclaration]: () => {},
+		[Type.VariableReference]: (node, visitor) => (node.indexer ? visitor(node.indexer) : null),
+		[Type.VariableAssignment]: (node, visitor) => {
+			visitor(node.expression);
+			if (node.indexer) visitor(node.indexer);
+		},
 		[Type.UnitReference]: (node, visitor) => visitor(node.indexer),
 		// [Type.IndexAccess]: (node, visitor) => visitor(node.index),
 		[Type.PropertyAccess]: (node, visitor) => visitor(node.indexer),
@@ -134,6 +139,12 @@ export namespace AST {
 		expression: AnyAST;
 	}
 
+	export interface ArrayDeclaration extends Node {
+		type: Type.ArrayDeclaration;
+		name: Token;
+		length: Token;
+	}
+
 	export interface UnitReference extends Node {
 		type: Type.UnitReference;
 		name: Token;
@@ -143,21 +154,16 @@ export namespace AST {
 
 	export interface VariableReference extends Node {
 		type: Type.VariableReference;
+		indexer: AST.AnyAST;
 		name: Token;
 	}
 
 	export interface VariableAssignment extends Node {
 		type: Type.VariableAssignment;
 		name: Token;
+		indexer: AnyAST;
 		expression: AnyAST;
 	}
-
-	// export interface IndexAccess extends Node {
-	// 	type: Type.IndexAccess;
-
-	// 	target: Token;
-	// 	index: AnyAST;
-	// }
 
 	export interface PropertyAccess extends Node {
 		type: Type.PropertyAccess;
@@ -258,6 +264,7 @@ export namespace AST {
 		| UnitDefine
 		| FunctionDeclaration
 		| VariableDeclaration
+		| ArrayDeclaration
 		| VariableReference
 		| VariableAssignment
 		| UnitReference

@@ -1,7 +1,7 @@
 import { AST } from "../parser/ast.js";
 import { stringifyVTValue, VTNode, VTValue } from "../vtsParser.js";
 import { BaseBlockKeys, CompKeys, ConditionalActionKeys, GVKeys, SequenceKeys } from "../vtTypes.js";
-import { Context, GV, Iterator } from "./context.js";
+import { CArray, Context, GV, Iterator } from "./context.js";
 import { classTypeMap, loadGameTypes, Method } from "./gameTypes.js";
 import { convertAstToMethodParameters, convertAstToParamInfo } from "./vtArgConverter.js";
 import { VTSGenerator } from "./vtsGenerator.js";
@@ -441,6 +441,9 @@ class Compiler {
 				case AST.Type.VariableDeclaration:
 					this.handleVarDeclaration(ast);
 					break;
+				case AST.Type.ArrayDeclaration:
+					this.handleArrayDeclaration(ast);
+					break;
 				case AST.Type.VariableAssignment:
 					this.handleVarAssignment(ast);
 					break;
@@ -485,10 +488,16 @@ class Compiler {
 
 	private handleVarAssignment(ast: AST.VariableAssignment) {
 		this.compileAst(ast.expression);
-
-		this.pop();
-		const gv = this.context.getGV(ast.name.value);
-		this.add(this.gen.gvCopy(this.vn(vars.result), this.vn(gv.name)));
+		if (ast.indexer) {
+			this.compileAst(ast.indexer);
+			this.pop();
+			const arr = this.context.getArray(ast.name.value);
+			this.add(this.gen.fireConditionalAction(arr.setActionId));
+		} else {
+			this.pop();
+			const gv = this.context.getGV(ast.name.value);
+			this.add(this.gen.gvCopy(this.vn(vars.result), this.vn(gv.name)));
+		}
 	}
 
 	private handleVarDeclaration(ast: AST.VariableDeclaration) {
@@ -498,8 +507,22 @@ class Compiler {
 		this.add(this.gen.gvCopy(this.vn(vars.result), this.vn(gv.name)));
 	}
 
+	private handleArrayDeclaration(ast: AST.ArrayDeclaration) {
+		const len = +ast.length.value;
+		if (isNaN(len) || len < 1) throw new Error("Array length must be a number greater than 0");
+
+		this.makeArr(ast.name.value, len);
+	}
+
 	private handleVarReference(ast: AST.VariableReference) {
-		if (this.context.hasGV(ast.name.value)) {
+		if (this.context.hasArray(ast.name.value)) {
+			if (!ast.indexer) throw new Error(`Arrays cannot be referenced without an index`);
+			this.compileAst(ast.indexer);
+			this.pop();
+			const arr = this.context.getArray(ast.name.value);
+			this.add(this.gen.fireConditionalAction(arr.getActionId));
+			this.push();
+		} else if (this.context.hasGV(ast.name.value)) {
 			this.add(this.gen.gvCopy(this.vn(ast.name.value), this.vn(vars.result)));
 			this.push();
 		} else {
@@ -1077,6 +1100,92 @@ class Compiler {
 		gvContainer.addChild(gv);
 
 		return gvVar;
+	}
+
+	private makeArr(name: string, length: number): CArray {
+		if (this.context.hasLocalArray(name)) throw new Error(`Array "${name}" already exists`);
+
+		const arr = this.context.addArray(name, length);
+
+		const arrIndexName = (index: number) => `${name}_${index}`;
+		for (let i = 0; i < length; i++) {
+			const gv = this.makeVar(arrIndexName(i));
+			arr.backingGvs.push(gv);
+		}
+
+		// = Set setup =
+		{
+			const setCondAct = this.gen.conditionalAction(`set_${name}`);
+			arr.setActionId = setCondAct.getValue("id");
+			const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.result), 0, "Equals"));
+			const actionParent = new VTNode<"eventName">("ACTIONS");
+			actionParent.setValue("eventName", null);
+			actionParent.addChild(this.gen.fireConditionalAction(this.popActionId));
+			actionParent.addChild(this.gen.gvCopy(this.vn(vars.result), this.vn(arrIndexName(0))));
+
+			const baseBlock = setCondAct.findChildWithName("BASE_BLOCK");
+			baseBlock.addChild(baseCaseConditional);
+			baseBlock.addChild(actionParent);
+
+			for (let i = 1; i < length; i++) {
+				const elseIf = new VTNode<BaseBlockKeys>("ELSE_IF");
+				elseIf.setValue("{blockName}", `stack[${i}]`);
+				elseIf.setValue("blockId", this.nextId());
+				const elseIfConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.result), i, "Equals"));
+
+				const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
+				elseIfActionParent.setValue("eventName", null);
+				elseIfActionParent.addChild(this.gen.fireConditionalAction(this.popActionId));
+				elseIfActionParent.addChild(this.gen.gvCopy(this.vn(vars.result), this.vn(arrIndexName(i))));
+
+				elseIf.addChild(elseIfConditional);
+				elseIf.addChild(elseIfActionParent);
+
+				baseBlock.addChild(elseIf);
+			}
+
+			const elseBlock = new VTNode<"eventName">("ELSE_ACTIONS");
+			elseBlock.setValue("eventName", null);
+			elseBlock.addChild(this.gen.gvSet(this.vn(vars.indexOutOfBoundsFlag), 1));
+			baseBlock.addChild(elseBlock);
+		}
+
+		// = Get setup =
+		{
+			const getCondAct = this.gen.conditionalAction(`get_${name}`);
+			arr.getActionId = getCondAct.getValue("id");
+			const baseCaseConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.result), 0, "Equals"));
+			const actionParent = new VTNode<"eventName">("ACTIONS");
+			actionParent.setValue("eventName", null);
+			actionParent.addChild(this.gen.gvCopy(this.vn(arrIndexName(0)), this.vn(vars.result)));
+
+			const baseBlock = getCondAct.findChildWithName("BASE_BLOCK");
+			baseBlock.addChild(baseCaseConditional);
+			baseBlock.addChild(actionParent);
+
+			for (let i = 1; i < length; i++) {
+				const elseIf = new VTNode<BaseBlockKeys>("ELSE_IF");
+				elseIf.setValue("{blockName}", `stack[${i}]`);
+				elseIf.setValue("blockId", this.nextId());
+				const elseIfConditional = this.gen.conditionalWithCondition(this.gen.gvComp(this.vn(vars.result), i, "Equals"));
+
+				const elseIfActionParent = new VTNode<"eventName">("ACTIONS");
+				elseIfActionParent.setValue("eventName", null);
+				elseIfActionParent.addChild(this.gen.gvCopy(this.vn(arrIndexName(i)), this.vn(vars.result)));
+
+				elseIf.addChild(elseIfConditional);
+				elseIf.addChild(elseIfActionParent);
+
+				baseBlock.addChild(elseIf);
+			}
+
+			const elseBlock = new VTNode<"eventName">("ELSE_ACTIONS");
+			elseBlock.setValue("eventName", null);
+			elseBlock.addChild(this.gen.gvSet(this.vn(vars.indexOutOfBoundsFlag), 1));
+			baseBlock.addChild(elseBlock);
+		}
+
+		return arr;
 	}
 
 	private withContext(node: VTNode, execute: () => void) {

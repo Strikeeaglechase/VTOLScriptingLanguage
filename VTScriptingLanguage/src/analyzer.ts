@@ -27,6 +27,7 @@ type SymbolInformation =
 
 class AnalyzerContext {
 	private vars: string[] = [];
+	private arrays: { name: string; size: number }[] = [];
 	private defines: { name: string; type: string }[] = [];
 
 	constructor(public parent: AnalyzerContext | null) {}
@@ -36,6 +37,29 @@ class AnalyzerContext {
 		if (hasLocal) return true;
 		if (this.parent) return this.parent.hasVar(name);
 		return false;
+	}
+
+	public addVar(name: string) {
+		this.vars.push(name);
+	}
+
+	public hasArr(name: string) {
+		const hasLocal = this.arrays.find(a => a.name == name);
+		if (hasLocal) return true;
+		if (this.parent) return this.parent.hasArr(name);
+		return false;
+	}
+
+	public addArr(name: string, size: number) {
+		this.arrays.push({ name, size });
+	}
+
+	public getArr(name: string): { name: string; size: number } {
+		const local = this.arrays.find(a => a.name == name);
+		if (local) return local;
+
+		if (this.parent) return this.parent.getArr(name);
+		return null;
 	}
 
 	public hasDefine(name: string) {
@@ -53,17 +77,12 @@ class AnalyzerContext {
 		return null;
 	}
 
-	public addVar(name: string) {
-		this.vars.push(name);
-	}
-
 	public addDefine(name: string, type: string) {
 		this.defines.push({ name, type });
 	}
 
 	public allVars(): string[] {
-		// const allLocalVars = this.vars.concat(this.defines.map(d => d.name));
-		return this.vars.concat(this.parent ? this.parent.allVars() : []);
+		return this.vars.concat(this.parent ? this.parent.allVars() : []).concat(this.arrays.map(a => a.name));
 	}
 
 	public allDefines(): { name: string; type: string }[] {
@@ -104,6 +123,10 @@ class Analyzer {
 		switch (ast.type) {
 			case AST.Type.VariableDeclaration:
 				this.currentContext.addVar(ast.name.value);
+				break;
+
+			case AST.Type.ArrayDeclaration:
+				this.currentContext.addArr(ast.name.value, +ast.length.value);
 				break;
 
 			case AST.Type.FunctionDeclaration: {
@@ -330,6 +353,8 @@ class Analyzer {
 				const fn = this.functions.find(f => f.name.value == matchingAst.name.value);
 				if (fn) return `(function) ${matchingAst.name.value}(${fn.parameters.map(p => p.value).join(", ")})`;
 			case AST.Type.VariableAssignment:
+				const arrCtx = contexts.find(ctx => ctx.hasArr(matchingAst.name.value));
+				if (arrCtx) return `let ${matchingAst.name.value}: GV[${arrCtx.getArr(matchingAst.name.value).size}]`;
 				return `let ${matchingAst.name.value}: GV`;
 			case AST.Type.MethodCall:
 				const ctx = contexts.find(ctx => ctx.hasDefine(matchingAst.target.value));
@@ -371,6 +396,9 @@ class Analyzer {
 				const enumType = loadGameTypes().enums.find(e => e.name == matchingAst.target.value);
 				if (!enumType) return `(unknown) ${matchingAst.target.value}.${matchingAst.property.value}`;
 				return `enum ${matchingAst.target.value} {\n${enumType.values.map(v => "\t" + v.key).join(",\n")}\n}`;
+
+			case AST.Type.ArrayDeclaration:
+				return `let ${matchingAst.name.value}: GV[${matchingAst.length.value}]`;
 
 			default:
 				console.log(`Hover semantics not implemented for ${matchingAst.type}`);

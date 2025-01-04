@@ -74,6 +74,28 @@ while (c < 100) {
 
 All variables are `number`'s and thus don't need a type. Functions are defined with `fn` and likewise do not require a type.
 
+## Arrays
+
+Basic number array's are supported, however come with some limitations. They must be statically sized, and cannot be directly copied or passed as function arguments.
+
+```ts
+#define len 10
+// Using preprocessor directive to define the length of the array
+arr myArray: len;
+// or without the macro:
+arr myArray: len;
+
+myArray[2] = 42;
+
+for(let i = 0; i < len; i+=1) {
+	// Can use variables or expressions as indexes
+	x[i] = i;
+}
+```
+
+> [!NOTE]
+> VTOL has no support for array-like structures, instead arrays get generated as a sequence of GVs, and reading/writing to them is done via large if-else statements, this can mean that large arrays generate very-large VTS files and may be bad for game performance.
+
 ## Functions
 
 Functions are declared via the `fn` keyword, and are created in VTOL as ConditionalActions
@@ -150,6 +172,9 @@ define globalValueActions: ScenarioGlobalValueActions = 2;
 define globalUnitActions: ScenarioGlobalUnitActions = 3;
 ```
 
+> [!NOTE]
+> Arguments to VTOL methods must be literals, this is a restriction of VTOL. This applies to the above built in functions, and all unit methods. Your own custom functions can use variables/expressions as arguments as expected.
+
 ## Units
 
 Referencing VTOL units is via a "Unit List", which effectively acts like an array of units.
@@ -170,9 +195,6 @@ if (targets.all.SC_IsAlive()) print("Everything is alive!"); // Default behavior
 ```
 
 Many methods require an enum value as an argument, in such cases (for instance `SetMovementSpeed`), simply use the enum like `MoveSpeeds.Slow_10`.
-
-> [!IMPORTANT]
-> It is important to note that **method arguments must be constant**, this is a limitation of VTOL.
 
 ## Looping
 

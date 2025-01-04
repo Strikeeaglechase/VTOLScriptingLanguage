@@ -1,6 +1,12 @@
 import fs from "fs";
 import { RequestMessage, ResponseMessage } from "vscode-jsonrpc";
-import { WebSocketServer, WebSocket } from "ws";
+import { CompletionItem, CompletionList, Diagnostic, Hover, MarkupContent, SemanticTokens } from "vscode-languageserver-types";
+import { WebSocket, WebSocketServer } from "ws";
+
+import { basicVts } from "./compiler/baseVts.js";
+import { Linker } from "./compiler/linker.js";
+import { getLastPos } from "./compiler/parser/ast.js";
+import { TokenType } from "./compiler/parser/tokenizer.js";
 import {
 	CompletionParams,
 	DidChangeTextDocumentParams,
@@ -13,12 +19,7 @@ import {
 	SemanticTokensParams,
 	ServerCapabilities
 } from "./lspTypes/protocol.js";
-import { CompletionItem, CompletionList, Diagnostic, Hover, MarkupContent, SemanticTokens } from "vscode-languageserver-types";
-import { Linker } from "./compiler/linker.js";
-import { basicVts } from "./compiler/baseVts.js";
-import { getLastPos } from "./compiler/parser/ast.js";
 import { processChange } from "./textUpdater.js";
-import { TokenType } from "./compiler/parser/tokenizer.js";
 
 enum TextDocumentSyncKind {
 	None = 0,
@@ -292,10 +293,10 @@ class LSP {
 		let mBuffer = "";
 		let expectLength = 0;
 
-		const stream = fs.createWriteStream("../output.txt");
+		// const stream = fs.createWriteStream("../output.txt");
 		this.client.on("message", m => {
 			const message = m.toString();
-			stream.write(message.trim() + "\n");
+			// stream.write(message.trim() + "\n");
 
 			if (message.trim().length == 0) return;
 			if (message.startsWith("Content-Length:")) {

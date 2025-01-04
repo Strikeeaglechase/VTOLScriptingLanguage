@@ -4,18 +4,26 @@ interface GV {
 	id: number;
 }
 
+interface CArray {
+	name: string;
+	size: number;
+	backingGvs: GV[];
+
+	setActionId: number;
+	getActionId: number;
+}
+
 interface Iterator {
 	unitList: string;
 	backingGv: GV;
 	name: string;
 }
 
-// let contextId = 0;
 class Context {
-	// private ctxId = contextId++;
 	private gvs: GV[] = [];
 	private gvNames: Set<string> = new Set();
 	private iterators: Iterator[] = [];
+	private arrays: CArray[] = [];
 
 	constructor(public parent: Context | null, private idGen: () => number, private ctxPrefix: string) {}
 
@@ -25,7 +33,6 @@ class Context {
 
 	public hasLocalGv(name: string) {
 		return this.gvNames.has(name);
-		// return this.gvs.some(gv => gv.name === name);
 	}
 
 	public hasGV(name: string) {
@@ -78,6 +85,29 @@ class Context {
 		if (idx === -1) throw new Error(`Iterator "${name}" not found`);
 		this.iterators.splice(idx, 1);
 	}
+
+	public hasLocalArray(name: string) {
+		return this.arrays.some(arr => arr.name === name);
+	}
+
+	public hasArray(name: string) {
+		if (this.hasLocalArray(name)) return true;
+		if (this.parent) return this.parent.hasArray(name);
+		return false;
+	}
+
+	public getArray(name: string) {
+		const arr = this.arrays.find(arr => arr.name === name);
+		if (!arr) throw new Error(`Array "${name}" not found`);
+		return arr;
+	}
+
+	public addArray(name: string, size: number) {
+		if (this.hasArray(name)) throw new Error(`Array "${name}" already exists`);
+		// const backingGvs = Array.from({ length: size }, (_, i) => this.addGV(`${name}_${i}`));
+		this.arrays.push({ name, size, backingGvs: [], setActionId: 0, getActionId: 0 });
+		return this.getArray(name);
+	}
 }
 
-export { Context, GV, Iterator };
+export { Context, GV, Iterator, CArray };
