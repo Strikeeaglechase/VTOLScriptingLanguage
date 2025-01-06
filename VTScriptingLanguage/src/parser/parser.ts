@@ -761,7 +761,7 @@ class Parser {
 			line: _if.line,
 			column: _if.column,
 
-			...getLastPosNamed([...elseBody, this.lastMaybeConsumed], getLastPos(elIfs, getLastPos(body)))
+			...getLastPosNamed([...elseBody, this.lastMaybeConsumed], getLastPos(elIfs, getLastPos(body, condition)))
 		};
 
 		return ifStatement;

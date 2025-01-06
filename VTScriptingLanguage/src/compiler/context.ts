@@ -98,13 +98,15 @@ class Context {
 
 	public getArray(name: string) {
 		const arr = this.arrays.find(arr => arr.name === name);
-		if (!arr) throw new Error(`Array "${name}" not found`);
+		if (!arr) {
+			if (!this.parent) throw new Error(`Array "${name}" not found`);
+			return this.parent.getArray(name);
+		}
 		return arr;
 	}
 
 	public addArray(name: string, size: number) {
 		if (this.hasArray(name)) throw new Error(`Array "${name}" already exists`);
-		// const backingGvs = Array.from({ length: size }, (_, i) => this.addGV(`${name}_${i}`));
 		this.arrays.push({ name, size, backingGvs: [], setActionId: 0, getActionId: 0 });
 		return this.getArray(name);
 	}
