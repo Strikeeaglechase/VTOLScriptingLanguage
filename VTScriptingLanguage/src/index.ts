@@ -43,8 +43,8 @@ fs.writeFileSync(
 );
 
 async function run() {
-	const emulateLog = fs.createWriteStream(debugPath + "elog.txt");
-	const emulator = new Emulator(irCompiledVts, true, emulateLog);
+	const emulateLogHandle = fs.openSync(debugPath + "elog.txt", "w");
+	const emulator = new Emulator(irCompiledVts, true, emulateLogHandle);
 	const t = Date.now();
 	await emulator.execute();
 

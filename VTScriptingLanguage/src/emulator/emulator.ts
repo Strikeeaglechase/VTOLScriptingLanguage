@@ -12,7 +12,7 @@ interface GV {
 }
 
 const useAsync = false;
-const SCCUNIT_COND_RESULT = true;
+const SCC_UNIT_COND_RESULT = true;
 
 class Emulator {
 	private gvs: GV[] = [];
@@ -20,7 +20,7 @@ class Emulator {
 	public totalExecutedEventCount = 0;
 	public execLog: string = "";
 
-	constructor(private vts: VTNode, private debug = false, private logWriter: fs.WriteStream = null) {
+	constructor(private vts: VTNode, private debug = false, private logWriter: fs.WriteStream | number = null) {
 		this.gvs = this.vts.getAllChildrenWithName("gv").map(gv => {
 			const [id, name, _, value] = gv.getValue("data") as [number, string, null, number];
 
@@ -145,7 +145,8 @@ class Emulator {
 						this.vts
 							.getAllChildrenWithName<ConditionalActionKeys>("ConditionalAction")
 							.find(ca => ca.getValue("id") === paramInfo.getValue("value"))
-							.getValue("name") +
+							.getNode("BASE_BLOCK")
+							.getValue("{blockName}") +
 						" " +
 						paramInfo.getValue("value")
 					);
@@ -290,7 +291,7 @@ class Emulator {
 				return andChildren.every(c => this.evaluateComp(c, allComps));
 			case "SCCUnit":
 				console.log(`SCCUnit ${comp.getValue("unit")}.${comp.getValue("methodName")}()`);
-				return SCCUNIT_COND_RESULT;
+				return SCC_UNIT_COND_RESULT;
 			case "SCCChance":
 				const chance = comp.getValue<"chance", number>("chance") / 100;
 				return Math.random() < chance;
@@ -405,7 +406,11 @@ class Emulator {
 		this.execLog += str + "\n";
 
 		if (this.logWriter) {
-			this.logWriter.write(str + "\n");
+			if (typeof this.logWriter === "number") {
+				fs.writeSync(this.logWriter, str + "\n");
+			} else {
+				this.logWriter.write(str + "\n");
+			}
 		}
 	}
 }
