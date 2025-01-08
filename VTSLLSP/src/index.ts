@@ -1,4 +1,3 @@
-import fs from "fs";
 import { RequestMessage, ResponseMessage } from "vscode-jsonrpc";
 import { CompletionItem, CompletionList, Diagnostic, Hover, MarkupContent, SemanticTokens } from "vscode-languageserver-types";
 import { WebSocket, WebSocketServer } from "ws";
@@ -20,6 +19,7 @@ import {
 	ServerCapabilities
 } from "./lspTypes/protocol.js";
 import { processChange } from "./textUpdater.js";
+import net from "net";
 
 enum TextDocumentSyncKind {
 	None = 0,
@@ -92,27 +92,54 @@ class LSP {
 	private wss: WebSocketServer;
 
 	private messageHandlers: Record<string, (message: RequestMessage, payload: any) => any> = {};
-
 	private files: Record<string, { content: string; linker: Linker }> = {};
 
+	private transportWriter: (data: string) => void;
 	constructor(private port: number) {}
 
-	public init() {
-		this.wss = new WebSocketServer({ port: 8000 });
-		this.wss.on("connection", ws => {
-			if (this.client != null) {
-				console.log(`Replacing client`);
-				this.client.close();
-			}
+	public async init() {
+		console.log(`Server args: `, process.argv);
+		const pipeArg = process.argv.find(a => a.startsWith("--pipe="));
+		if (pipeArg) {
+			console.log(`Configuring for local IPC`);
 
-			this.client = ws;
+			const handler = this.getRawMessageHandler();
+			const pipeName = pipeArg.split("=")[1];
+			console.log(`Connecting to pipe ${pipeName}`);
+			await new Promise<void>(res => {
+				const client = net.createConnection(pipeName, res);
+				client.on("data", data => {
+					data
+						.toString()
+						.split("\n")
+						.forEach(m => handler(m));
+				});
 
-			this.setupWs();
-		});
+				this.transportWriter = data => client.write(data);
+			});
+		} else {
+			console.log(`Starting a websocket server on port ${this.port}`);
+			const { WebSocketServer } = await import("ws");
+			this.wss = new WebSocketServer({ port: 8000 });
+			this.wss.on("connection", ws => {
+				if (this.client != null) {
+					console.log(`Replacing client`);
+					this.client.close();
+				}
 
-		this.wss.on("listening", () => {
-			console.log(`Listening on port ${this.port}`);
-		});
+				this.client = ws;
+
+				const handler = this.getRawMessageHandler();
+				this.client.on("message", m => handler(m.toString()));
+				this.client.on("close", () => console.log("Client disconnected"));
+
+				this.transportWriter = data => this.client.send(data);
+			});
+
+			this.wss.on("listening", () => {
+				console.log(`Listening on port ${this.port}`);
+			});
+		}
 
 		this.registerMessageHandler("initialize", this.handleInit.bind(this));
 		this.registerMessageHandler("textDocument/semanticTokens/full", this.handleSemanticTokensRequest.bind(this));
@@ -289,15 +316,11 @@ class LSP {
 		return result;
 	}
 
-	private setupWs() {
+	private getRawMessageHandler() {
 		let mBuffer = "";
 		let expectLength = 0;
 
-		// const stream = fs.createWriteStream("../output.txt");
-		this.client.on("message", m => {
-			const message = m.toString();
-			// stream.write(message.trim() + "\n");
-
+		const handleMessage = (message: string) => {
 			if (message.trim().length == 0) return;
 			if (message.startsWith("Content-Length:")) {
 				const lenMatch = message.match(/Content-Length: (\d+)/);
@@ -315,11 +338,9 @@ class LSP {
 			const jsonData = JSON.parse(mBuffer);
 			this.handleMessage(jsonData);
 			mBuffer = "";
-		});
+		};
 
-		this.client.on("close", () => {
-			console.log(`Client disconnected`);
-		});
+		return handleMessage;
 	}
 
 	private reply(to: RequestMessage, data: any) {
@@ -330,7 +351,10 @@ class LSP {
 		};
 
 		const content = JSON.stringify(reply);
-		this.client.send(`Content-Length: ${content.length}\r\n\r\n${content}`);
+		this.transportWriter(`Content-Length: ${content.length}\r\n\r\n${content}`);
+
+		// if (this.useWs) this.client.send(`Content-Length: ${content.length}\r\n\r\n${content}`);
+		// else this.transportWriter(`Content-Length: ${content.length}\r\n\r\n${content}`);
 	}
 
 	private registerMessageHandler<T>(method: string, handler: (message: RequestMessage, payload: T) => any) {
@@ -343,6 +367,7 @@ class LSP {
 			console.log(`No handler for method ${message.method}`);
 			return;
 		}
+		console.log(`Handling message ${message.method}`);
 
 		const result = handler(message, message.params);
 		this.reply(message, result);

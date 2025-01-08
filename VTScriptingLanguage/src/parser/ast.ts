@@ -64,6 +64,7 @@ export namespace AST {
 		[Type.For]: (node, visitor) => {
 			visitor(node.init);
 			visitor(node.condition);
+			visitor(node.iteration);
 			node.body.forEach(visitor);
 		},
 		[Type.While]: (node, visitor) => {

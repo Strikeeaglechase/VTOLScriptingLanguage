@@ -3,3 +3,4 @@ GameSource.cs
 *.vts
 log.txt
 classInfo.json
+*.vsix
