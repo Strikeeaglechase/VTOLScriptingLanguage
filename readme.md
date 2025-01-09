@@ -78,9 +78,7 @@ fn doPartialFib(a2, b2, c2) {
 }
 
 while (c < 100) {
-	//c = doPartialFib(a, b, c);
-	targets[c].DestroySelf();
-	c = a + b;
+	c = doPartialFib(a, b, c);
 	a = b;
 	b = c;
 }
@@ -97,13 +95,13 @@ Basic number array's are supported, however come with some limitations. They mus
 // Using preprocessor directive to define the length of the array
 arr myArray: len;
 // or without the macro:
-arr myArray: len;
+arr myArray: 10;
 
 myArray[2] = 42;
 
 for(let i = 0; i < len; i+=1) {
 	// Can use variables or expressions as indexes
-	x[i] = i;
+	myArray[i] = i;
 }
 ```
 
