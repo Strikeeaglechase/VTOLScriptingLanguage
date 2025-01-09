@@ -1,4 +1,7 @@
-//debug:result, result2, result3
+//EXPECT result=11
+//EXPECT result2=0
+//EXPECT result3=11
+
 let a = 1;
 let b = 2;
 let c = 2;

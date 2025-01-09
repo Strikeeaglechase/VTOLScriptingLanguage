@@ -1,12 +1,11 @@
+import chalk from "chalk";
 import fs from "fs";
 
 // Setup non-unit (cond) events
-
 import { Emulator } from "./emulator/emulator.js";
+import { Linker } from "./linker.js";
 import { UnitTester } from "./unitTests.js";
 import { writeVtsFile } from "./vtsParser.js";
-import { Linker } from "./linker.js";
-import chalk from "chalk";
 
 let sourceVtsPath = "C:/Program Files (x86)/Steam/steamapps/common/VTOL VR/CustomScenarios/Campaigns/chaseFeetPics/TestMission2/TestMission2.vts";
 let sourceCodePath: string;

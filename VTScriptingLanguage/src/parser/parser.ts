@@ -14,6 +14,7 @@ const LOG_STACK = true;
 class Parser {
 	public errors: ParserError[] = [];
 	private lastMaybeConsumed: Token;
+	private attemptToParseBinary = true;
 	constructor(private tokens: Stream<Token>, private continueOnError = true) {}
 
 	public parse() {
@@ -79,7 +80,7 @@ class Parser {
 			const next = this.tokens.peek();
 			if (!next) return result;
 
-			if (next.type == TokenType.Operand && token.value != ";") {
+			if (this.attemptToParseBinary && next.type == TokenType.Operand && token.value != ";") {
 				return this.handleBinaryOperation(result);
 			}
 
@@ -150,9 +151,8 @@ class Parser {
 			return left;
 		}
 
-		this.tokens.next();
-
 		if (operator.value == "+=" || operator.value == "-=" || operator.value == "*=") {
+			this.tokens.next();
 			return this.handleIncOrDec(left, operator.value);
 		}
 
@@ -160,7 +160,10 @@ class Parser {
 		if (!opPrec) throw new Error(`No operand precedence for ${operator.value}`);
 
 		if (opPrec > prec) {
+			this.tokens.next();
+			this.attemptToParseBinary = false;
 			const right = this.handleBinaryOperation(this.parseAst(), opPrec);
+			this.attemptToParseBinary = true;
 			const binOp: AST.AnyAST = {
 				type: AST.Type.BinaryOperation,
 				operator: operator,

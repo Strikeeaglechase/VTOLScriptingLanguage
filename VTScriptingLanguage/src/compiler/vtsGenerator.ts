@@ -11,7 +11,6 @@ import {
 	ParamInfoKeys,
 	SequenceKeys
 } from "../vtTypes.js";
-import { varIds } from "./compiler.js";
 import { classToSCCCondMap, classTypeMap, loadGameTypes } from "./gameTypes.js";
 
 interface NodeInfo {
@@ -387,6 +386,76 @@ class VTSGenerator {
 		and.setValue("factors", conds);
 
 		return and;
+	}
+
+	@Track
+	public compBothNotZero(gvA: number, gvB: number) {
+		const aGreaterThanZero = this.gvComp(gvA, 0, "Greater_Than");
+		const aLessThanZero = this.gvComp(gvA, 0, "Less_Than");
+		const orA = new VTNode<CompKeys>("COMP");
+		orA.setValue("id", this.nextId());
+		orA.setValue("type", "SCCOr");
+		orA.setValue("uiPos", { x: 0, y: 0, z: 0 });
+		orA.setValue("factors", [aGreaterThanZero.getValue("id"), aLessThanZero.getValue("id")]);
+
+		const bGreaterThanZero = this.gvComp(gvB, 0, "Greater_Than");
+		const bLessThanZero = this.gvComp(gvB, 0, "Less_Than");
+		const orB = new VTNode<CompKeys>("COMP");
+		orB.setValue("id", this.nextId());
+		orB.setValue("type", "SCCOr");
+		orB.setValue("uiPos", { x: 0, y: 0, z: 0 });
+		orB.setValue("factors", [bGreaterThanZero.getValue("id"), bLessThanZero.getValue("id")]);
+
+		const and = new VTNode<CompKeys>("COMP");
+		and.setValue("id", this.nextId());
+		and.setValue("type", "SCCAnd");
+		and.setValue("uiPos", { x: 0, y: 0, z: 0 });
+		and.setValue("factors", [orA.getValue("id"), orB.getValue("id")]);
+
+		const conditional = new VTNode<ConditionalKeys>("CONDITIONAL");
+		conditional.setValue("id", this.nextId());
+		conditional.setValue("outputNodePos", { x: 0, y: 0, z: 0 });
+		conditional.setValue("root", and.getValue("id"));
+
+		const comps = [aGreaterThanZero, aLessThanZero, bGreaterThanZero, bLessThanZero, orA, orB, and];
+		comps.forEach(comp => conditional.addChild(comp));
+
+		return conditional;
+	}
+
+	@Track
+	public compEitherNotZero(gvA: number, gvB: number) {
+		const aGreaterThanZero = this.gvComp(gvA, 0, "Greater_Than");
+		const aLessThanZero = this.gvComp(gvA, 0, "Less_Than");
+		const orA = new VTNode<CompKeys>("COMP");
+		orA.setValue("id", this.nextId());
+		orA.setValue("type", "SCCOr");
+		orA.setValue("uiPos", { x: 0, y: 0, z: 0 });
+		orA.setValue("factors", [aGreaterThanZero.getValue("id"), aLessThanZero.getValue("id")]);
+
+		const bGreaterThanZero = this.gvComp(gvB, 0, "Greater_Than");
+		const bLessThanZero = this.gvComp(gvB, 0, "Less_Than");
+		const orB = new VTNode<CompKeys>("COMP");
+		orB.setValue("id", this.nextId());
+		orB.setValue("type", "SCCOr");
+		orB.setValue("uiPos", { x: 0, y: 0, z: 0 });
+		orB.setValue("factors", [bGreaterThanZero.getValue("id"), bLessThanZero.getValue("id")]);
+
+		const rootOr = new VTNode<CompKeys>("COMP");
+		rootOr.setValue("id", this.nextId());
+		rootOr.setValue("type", "SCCOr");
+		rootOr.setValue("uiPos", { x: 0, y: 0, z: 0 });
+		rootOr.setValue("factors", [orA.getValue("id"), orB.getValue("id")]);
+
+		const conditional = new VTNode<ConditionalKeys>("CONDITIONAL");
+		conditional.setValue("id", this.nextId());
+		conditional.setValue("outputNodePos", { x: 0, y: 0, z: 0 });
+		conditional.setValue("root", rootOr.getValue("id"));
+
+		const comps = [aGreaterThanZero, aLessThanZero, bGreaterThanZero, bLessThanZero, orA, orB, rootOr];
+		comps.forEach(comp => conditional.addChild(comp));
+
+		return conditional;
 	}
 
 	@Track

@@ -598,6 +598,9 @@ class Compiler {
 		this.pop();
 		this.add(this.gen.gvCopy(this.vn(vars.result), this.vn(vars.mathA)));
 
+		const setOne = this.gen.gvSet(this.vn(vars.mathB), 1);
+		const setZero = this.gen.gvSet(this.vn(vars.mathB), 0);
+
 		switch (ast.operator.value) {
 			case "+":
 				this.add(this.gen.gvMath(this.vn(vars.mathA), this.vn(vars.mathB), "AddValues"));
@@ -617,9 +620,15 @@ class Compiler {
 			case "<":
 			case "<=":
 				const cond = this.gen.gvGvComp(this.vn(vars.mathA), this.vn(vars.mathB), ast.operator.value);
-				const setOne = this.gen.gvSet(this.vn(vars.mathB), 1);
-				const setZero = this.gen.gvSet(this.vn(vars.mathB), 0);
 				this.add(this.gen.simpleConditional("mathComp", cond, setOne, setZero));
+				break;
+			case "&&":
+				const andCond = this.gen.compBothNotZero(this.vn(vars.mathA), this.vn(vars.mathB));
+				this.add(this.gen.simpleConditional("mathAnd", andCond, setOne, setZero));
+				break;
+			case "||":
+				const orCond = this.gen.compEitherNotZero(this.vn(vars.mathA), this.vn(vars.mathB));
+				this.add(this.gen.simpleConditional("mathOr", orCond, setOne, setZero));
 				break;
 
 			default:

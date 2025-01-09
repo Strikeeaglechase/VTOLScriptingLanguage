@@ -1,10 +1,12 @@
-//expect n=3
-//expect z=5
-//expect z1=6
+//expect n=30
+//expect z=410
+//expect z1=600
+//expect z2=220
 
-let a = 1;
-let b = 2;
+let a = 10;
+let b = 20;
 let n = a + b;
 
 let z = a + b * b;
 let z1 = (a + b) * b;
+let z2 = a * b + b;
