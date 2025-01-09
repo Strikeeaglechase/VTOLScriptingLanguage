@@ -4,6 +4,7 @@ A programming language that targets VTS, VTOL VR's mission format. More than any
 
 -  [Installation](#installation--usage)
 -  [Options](#options)
+-  [Building from Source](#building-from-source)
 -  [Language Overview](#language)
    -  [Basic Structure](#basic-structure)
    -  [Arrays](#arrays)
@@ -15,17 +16,15 @@ A programming language that targets VTS, VTOL VR's mission format. More than any
 
 ## Installation & Usage
 
-The compiler is within the VTScriptingLanguage folder, to build first make sure you have [NodeJS](https://nodejs.org/en) installed, then run
+The simplest way to get started is to install the compiler via [npm](https://www.npmjs.com/package/vtol-scripting-language):
 
 ```bash
-npm run build
+npm install -g vtol-scripting-language
 ```
 
-And run the compiler via
+Then the command `vtslc --input [SOURCE] --vts [SOURCE_VTS]` will be available, run `vtslc --help` or see below for options.
 
-```bash
-node ./dist/compile.js --input [SOURCE] --vts [SOURCE_VTS]
-```
+It is **highly recommend** to install the VSCode extension for language support, available [here](https://marketplace.visualstudio.com/items?itemName=Strikeeaglechase.vtsl-lsp).
 
 ## Options
 
@@ -43,6 +42,20 @@ node ./dist/compile.js --input [SOURCE] --vts [SOURCE_VTS]
     --no-except           Disable stack overflow and OOB objective's from being
     								included in the VTS file
     -h, --help            Print this help message
+
+## Building from Source
+
+The compiler is within the VTScriptingLanguage folder, to build first make sure you have [NodeJS](https://nodejs.org/en) installed, then run
+
+```bash
+npm run build
+```
+
+And run the compiler via
+
+```bash
+node ./dist/compile.js --input [SOURCE] --vts [SOURCE_VTS]
+```
 
 # Language
 

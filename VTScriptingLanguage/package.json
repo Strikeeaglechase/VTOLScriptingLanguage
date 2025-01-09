@@ -7,6 +7,9 @@
 		"run": "cd dist && nodemon index.js -w ../source -w . -e js,vtsl",
 		"build": "npm i --include=dev && npx tsc"
 	},
+	"bin": {
+		"vtslc": "./dist/compile.js"
+	},
 	"keywords": [],
 	"type": "module",
 	"author": "",

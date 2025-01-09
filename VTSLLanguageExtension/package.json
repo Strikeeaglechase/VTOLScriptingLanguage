@@ -3,9 +3,8 @@
 	"description": "Adds LSP support for VT Scripting Language (VTSL)",
 	"author": "Strikeeaglechase",
 	"license": "MIT",
-	"version": "1.0.6",
+	"version": "1.0.7",
 	"publisher": "Strikeeaglechase",
-	"icon": "./vt.png",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/Strikeeaglechase/VTOLScriptingLanguage"

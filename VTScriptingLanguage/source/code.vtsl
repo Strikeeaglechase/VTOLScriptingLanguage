@@ -1,20 +1,8 @@
-//debug:result, result2, result3
+//debug:result
 let a = 1;
 let b = 2;
-let c = 2;
-
 let result = 0;
-let result2 = 0;
-let result3 = 0;
 
-if (a != b && b == c) {
-	result = 11;
-}
-
-if (a == b && b == c) {
-	result2 = 11;
-}
-
-if (a == b || b == c) {
-	result3 = 11;
+if(a == b) {
+	result = 42;
 }

@@ -1,13 +1,15 @@
+#!/usr/bin/env node
+import chalk from "chalk";
 import commandLineArgs, { OptionDefinition } from "command-line-args";
 import commandLineUsage, { Section } from "command-line-usage";
 import fs from "fs";
 import path from "path";
-import { Linker } from "./linker.js";
-import chalk from "chalk";
-import { readVtsFile, writeVtsFile } from "./vtsParser.js";
-import { deleteCompilerNodes } from "./compiler/vtsCleaner.js";
-import { vars } from "./compiler/compiler.js";
+
 import { basicVts } from "./baseVts.js";
+import { vars } from "./compiler/compiler.js";
+import { deleteCompilerNodes } from "./compiler/vtsCleaner.js";
+import { Linker } from "./linker.js";
+import { readVtsFile, writeVtsFile } from "./vtsParser.js";
 
 const options: (OptionDefinition & { description: string })[] = [
 	{ name: "input", alias: "i", type: String, description: `Input VTSL file` },
